@@ -1,0 +1,17 @@
+// src/routes/driver.route.ts
+import { Router } from 'express';
+import * as controller from '../controller/driver.controller';
+import { auth } from '../middleware';
+import { UserRole } from '../types';
+
+const router = Router();
+
+router.post('/', auth(['admin', 'dispatcher']), controller.createDriver);
+router.get('/', auth(['admin', 'dispatcher']), controller.getDrivers);
+router.get('/:id', auth(['admin', 'dispatcher']), controller.getDriverById);
+router.put('/:id', auth(['admin', 'dispatcher']), controller.updateDriver);
+router.delete('/:id', auth(['admin', 'dispatcher']), controller.deleteDriver);
+router.post('/:id/advances', auth(['admin', 'accountant']), controller.addAdvance);
+router.put('/:id/settle-advance', auth(['admin', 'accountant']), controller.settleAdvance);
+
+export { router as driverRouter };

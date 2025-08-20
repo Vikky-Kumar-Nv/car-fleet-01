@@ -1,0 +1,126 @@
+export type UserRole = 'admin' | 'accountant' | 'dispatcher' | 'driver' | 'customer';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
+  role: UserRole;
+  createdAt: string;
+  password?: string; // demo only (plain text)
+}
+
+export interface Driver {
+  id: string;
+  name: string;
+  phone: string;
+  licenseNumber: string;
+  aadhaar: string;
+  photo?: string;
+  vehicleType: 'owned' | 'rented';
+  licenseExpiry: string;
+  policeVerificationExpiry: string;
+  licenseDocument?: UploadedFile;
+  policeVerificationDocument?: UploadedFile;
+  paymentMode: 'per-trip' | 'daily' | 'monthly' | 'fuel-basis';
+  salary: number;
+  advances: Advance[];
+  status: 'active' | 'inactive';
+  createdAt: string;
+}
+
+export interface Vehicle {
+  id: string;
+  registrationNumber: string;
+  category: 'SUV' | 'sedan' | 'bus' | 'mini-bus';
+  owner: 'owned' | 'rented';
+  insuranceExpiry: string;
+  fitnessExpiry: string;
+  permitExpiry: string;
+  pollutionExpiry: string;
+  status: 'active' | 'maintenance' | 'inactive';
+  mileageTrips?: number;
+  mileageKm?: number;
+  createdAt: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  gst: string;
+  address: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  outstandingAmount: number;
+  createdAt: string;
+}
+
+export interface Booking {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  bookingSource: 'company' | 'travel-agency' | 'individual';
+  companyId?: string;
+  pickupLocation: string;
+  dropLocation: string;
+  journeyType: 'outstation' | 'local' | 'one-way' | 'round-trip';
+  startDate: string;
+  endDate: string;
+  vehicleId?: string;
+  driverId?: string;
+  tariffRate: number;
+  totalAmount: number;
+  advanceReceived: number;
+  balance: number;
+  status: 'booked' | 'ongoing' | 'completed';
+  dutySlips?: UploadedFile[]; // multiple uploads (pdf/images)
+  expenses: Expense[];
+  billed: boolean;
+  createdAt: string;
+  statusHistory: StatusChange[];
+}
+
+export interface Expense {
+  id: string;
+  type: 'fuel' | 'toll' | 'parking' | 'other';
+  amount: number;
+  description: string;
+  receipt?: string;
+}
+
+export interface StatusChange {
+  id: string;
+  status: Booking['status'];
+  timestamp: string;
+  changedBy: string;
+}
+
+export interface Advance {
+  id: string;
+  amount: number;
+  date: string;
+  settled: boolean;
+  description: string;
+}
+
+export interface Payment {
+  id: string;
+  entityId: string;
+  entityType: 'customer' | 'driver';
+  amount: number;
+  type: 'received' | 'paid';
+  date: string;
+  description: string;
+  // Optional link if this payment settles a specific driver advance
+  relatedAdvanceId?: string;
+}
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  type: string; // mime
+  size: number; // bytes
+  data: string; // base64 data URL
+  uploadedAt: string;
+}
