@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Button } from '../../components/ui/Button';
@@ -22,6 +22,8 @@ export const DriverManagementDetailPage: React.FC = () => {
   const [form, setForm] = useState<Partial<DriverReportEntry>>({});
   // (future) loading state removed to satisfy linter
 
+  const entryRef = useRef<HTMLDivElement | null>(null);
+
   const load = useCallback(async () => {
     if (!driverId) return;
     try {
@@ -34,6 +36,12 @@ export const DriverManagementDetailPage: React.FC = () => {
   const editExisting = (entry: DriverReportEntry) => {
     setSelectedDate(entry.date.slice(0,10));
     setForm(entry);
+  };
+
+  const jumpToEntry = () => {
+    requestAnimationFrame(()=>{
+      entryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   const handleChange = (field: keyof DriverReportEntry, value: unknown) => {
@@ -75,7 +83,7 @@ export const DriverManagementDetailPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={()=>navigate('/drivers/management')}><Icon name="back" className="h-4 w-4 mr-1"/>Back</Button>
+                  <Button title='Back' variant="outline" onClick={()=>navigate('/drivers/management')}><Icon name="back" className="h-4 w-4 mr-1"/>Back</Button>
           <h1 className="text-2xl font-bold">{driver?.name || 'Driver'} - Management</h1>
         </div>
         <div className="flex gap-2 items-end">
@@ -85,7 +93,7 @@ export const DriverManagementDetailPage: React.FC = () => {
             </select>
           </label>
           <label className="text-xs text-gray-600 flex flex-col">Year
-            <input type="number" aria-label="Year" title="Year" value={year} onChange={e=>setYear(parseInt(e.target.value)||year)} className="w-24 border-gray-300 rounded-md text-sm mt-1" />
+            <input  type="number" aria-label="Year" title="Year" value={year} onChange={e=>setYear(parseInt(e.target.value)||year)} className="w-24 border-gray-300 rounded-md text-sm mt-1" />
           </label>
         </div>
       </div>
@@ -106,48 +114,50 @@ export const DriverManagementDetailPage: React.FC = () => {
           </thead>
           <tbody>
             {monthDays.map(d => (
-              <tr key={d.date} className={"border-b hover:bg-amber-50 cursor-pointer " + (selectedDate===d.date ? 'bg-amber-100' : '')} onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>
-                <td className="px-2 py-1 text-left whitespace-nowrap">{d.date}</td>
-                <td className="px-2 py-1 text-center">{d.entry?.totalKm || '-'}</td>
-                <td className="px-2 py-1 text-center">{d.entry?.daysWorked || '-'}</td>
-                <td className="px-2 py-1 text-center">{d.entry?.nightsWorked || '-'}</td>
-                <td className="px-2 py-1 text-center">{d.entry?.nightAmount || '-'}</td>
-                <td className="px-2 py-1 text-center">{d.entry?.salaryRate || '-'}</td>
-                <td className="px-2 py-1 text-center">{d.entry?.totalAmount || '-'}</td>
-                <td className="px-2 py-1 text-center text-amber-600">Edit</td>
+              <tr key={d.date} className={"border-b hover:bg-amber-50 " + (selectedDate===d.date ? 'bg-amber-100' : '')}>
+                <td className="px-2 py-1 text-left whitespace-nowrap cursor-pointer" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>{d.date}</td>
+                <td className="px-2 py-1 text-center cursor-pointer" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>{d.entry?.totalKm || '-'}</td>
+                <td className="px-2 py-1 text-center cursor-pointer" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>{d.entry?.daysWorked || '-'}</td>
+                <td className="px-2 py-1 text-center cursor-pointer" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>{d.entry?.nightsWorked || '-'}</td>
+                <td className="px-2 py-1 text-center cursor-pointer" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>{d.entry?.nightAmount || '-'}</td>
+                <td className="px-2 py-1 text-center cursor-pointer" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>{d.entry?.salaryRate || '-'}</td>
+                <td className="px-2 py-1 text-center cursor-pointer" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); }}>{d.entry?.totalAmount || '-'}</td>
+                <td className="px-2 py-1 text-center">
+                  <button type="button" title='Delete' className="text-amber-600 hover:underline text-xs" onClick={()=>{ setSelectedDate(d.date); editExisting(d.entry || { driverId, date: d.date }); jumpToEntry(); }}>Edit</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="border rounded-md p-4 space-y-4 bg-white shadow-sm">
+      <div ref={entryRef} className="border rounded-md p-4 space-y-4 bg-white shadow-sm">
         <h2 className="font-semibold">Entry - {selectedDate}</h2>
         <div className="grid md:grid-cols-4 gap-4 text-sm">
           <label className="flex flex-col text-xs">Total Km
-            <input type="number" value={form.totalKm ?? ''} onChange={e=>handleChange('totalKm', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
+            <input title='Total Km' type="number" value={form.totalKm ?? ''} onChange={e=>handleChange('totalKm', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
           </label>
           <label className="flex flex-col text-xs">Days Worked
-            <input type="number" value={form.daysWorked ?? ''} onChange={e=>handleChange('daysWorked', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
+                      <input title='Days Worked' type="number" value={form.daysWorked ?? ''} onChange={e=>handleChange('daysWorked', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
           </label>
           <label className="flex flex-col text-xs">Nights Worked
-            <input type="number" value={form.nightsWorked ?? ''} onChange={e=>handleChange('nightsWorked', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
+            <input title='Nights Worked' type="number" value={form.nightsWorked ?? ''} onChange={e=>handleChange('nightsWorked', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
           </label>
           <label className="flex flex-col text-xs">Night Amount
-            <input type="number" value={form.nightAmount ?? ''} onChange={e=>handleChange('nightAmount', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
+             <input title='Night Amount' type="number" value={form.nightAmount ?? ''} onChange={e=>handleChange('nightAmount', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
           </label>
           <label className="flex flex-col text-xs">Salary Rate
-            <input type="number" value={form.salaryRate ?? driver?.salary ?? ''} onChange={e=>handleChange('salaryRate', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
+            <input type="number" title='Salary Rate' value={form.salaryRate ?? driver?.salary ?? ''} onChange={e=>handleChange('salaryRate', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
           </label>
           <label className="flex flex-col text-xs">Total Amount
-            <input type="number" value={form.totalAmount ?? ''} onChange={e=>handleChange('totalAmount', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
+            <input title='Total Amount' type="number" value={form.totalAmount ?? ''} onChange={e=>handleChange('totalAmount', parseFloat(e.target.value)||0)} className="mt-1 border-gray-300 rounded"/>
           </label>
           <label className="flex flex-col text-xs md:col-span-2">Notes
-            <input value={form.notes ?? ''} onChange={e=>handleChange('notes', e.target.value)} className="mt-1 border-gray-300 rounded"/>
+            <input title='Notes' value={form.notes ?? ''} onChange={e=>handleChange('notes', e.target.value)} className="mt-1 border-gray-300 rounded"/>
           </label>
         </div>
         <div className="flex gap-2">
-          <Button onClick={save}><Icon name="file" className="h-4 w-4 mr-1"/>Save</Button>
+                  <Button title='Save' onClick={save}><Icon name="file" className="h-4 w-4 mr-1"/>Save</Button>
           <Button variant="outline" onClick={()=>{ setForm({}); }}><Icon name="close" className="h-4 w-4 mr-1"/>Clear</Button>
         </div>
       </div>

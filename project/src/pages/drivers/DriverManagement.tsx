@@ -37,7 +37,7 @@ export const DriverManagementPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={()=>navigate('/drivers')}><Icon name="back" className="h-4 w-4 mr-1"/>Back</Button>
+          <Button title='Back' variant="outline" onClick={()=>navigate('/drivers')}><Icon name="back" className="h-4 w-4 mr-1"/>Back</Button>
           <h1 className="text-2xl font-bold">Driver Management</h1>
         </div>
         <div className="flex gap-2 items-end">
@@ -66,7 +66,7 @@ export const DriverManagementPage: React.FC = () => {
                   <p className="font-semibold">{d.name}</p>
                   <p className="text-xs text-gray-500">{d.phone}</p>
                 </div>
-                <Button size="sm" variant="outline" onClick={()=>navigate(`/drivers/management/${d.id}`)}>Manage</Button>
+                      <Button title='Manage' size="sm" variant="outline" onClick={()=>navigate(`/drivers/management/${d.id}`)}>Manage</Button>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="p-2 bg-gray-50 rounded">Km: <span className="font-medium">{totalKm}</span></div>
