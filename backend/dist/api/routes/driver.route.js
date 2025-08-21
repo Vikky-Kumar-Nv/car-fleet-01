@@ -27,6 +27,7 @@ exports.driverRouter = void 0;
 // src/routes/driver.route.ts
 const express_1 = require("express");
 const controller = __importStar(require("../controller/driver.controller"));
+const reportController = __importStar(require("../controller/driverReport.controller"));
 const middleware_1 = require("../middleware");
 const router = (0, express_1.Router)();
 exports.driverRouter = router;
@@ -37,3 +38,6 @@ router.put('/:id', (0, middleware_1.auth)(['admin', 'dispatcher']), controller.u
 router.delete('/:id', (0, middleware_1.auth)(['admin', 'dispatcher']), controller.deleteDriver);
 router.post('/:id/advances', (0, middleware_1.auth)(['admin', 'accountant']), controller.addAdvance);
 router.put('/:id/settle-advance', (0, middleware_1.auth)(['admin', 'accountant']), controller.settleAdvance);
+// Driver management report endpoints
+router.get('/:driverId/reports', (0, middleware_1.auth)(['admin', 'dispatcher', 'accountant']), reportController.listDriverMonthReports);
+router.put('/:driverId/reports', (0, middleware_1.auth)(['admin', 'dispatcher', 'accountant']), reportController.upsertDriverReport);

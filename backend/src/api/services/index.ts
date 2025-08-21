@@ -10,3 +10,4 @@ export * from './finance.service';
 export * from './customer.service';
 export * from './vehicleCategory.service';
 export * from './vehicleServicing.service';
+export * from './driverReport.service';

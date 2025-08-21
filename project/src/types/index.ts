@@ -151,3 +151,18 @@ export interface UploadedFile {
   data: string; // base64 data URL
   uploadedAt: string;
 }
+
+export interface DriverReportEntry {
+  id?: string;
+  driverId: string;
+  date: string; // ISO date (day)
+  totalKm?: number;
+  daysWorked?: number;
+  nightsWorked?: number;
+  nightAmount?: number;
+  salaryRate?: number;
+  totalAmount?: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

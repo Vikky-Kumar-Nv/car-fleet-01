@@ -1,4 +1,27 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.apiRouter = void 0;
 const express_1 = require("express");
@@ -14,6 +37,7 @@ const customer_route_1 = require("./customer.route");
 const vehicleCategory_route_1 = require("./vehicleCategory.route");
 const vehicleServicing_route_1 = require("./vehicleServicing.route");
 const middleware_1 = require("../middleware");
+const driverReportController = __importStar(require("../controller/driverReport.controller"));
 const router = (0, express_1.Router)();
 exports.apiRouter = router;
 router.use('/auth', auth_route_1.authRouter);
@@ -27,3 +51,5 @@ router.use('/finance', middleware_1.apiLimiter, finance_route_1.financeRouter);
 router.use('/customers', middleware_1.apiLimiter, customer_route_1.customerRouter);
 router.use('/vehicle-categories', middleware_1.apiLimiter, vehicleCategory_route_1.vehicleCategoryRouter);
 router.use('/vehicles', middleware_1.apiLimiter, vehicleServicing_route_1.vehicleServicingRouter); // nested servicing endpoints under /vehicles/:vehicleId/servicing
+// aggregated driver reports month listing
+router.get('/driver-reports', middleware_1.apiLimiter, (0, middleware_1.auth)(['admin', 'dispatcher', 'accountant']), driverReportController.listAllDriverMonthReports);

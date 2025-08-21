@@ -26,3 +26,4 @@ __exportStar(require("./finance.service"), exports);
 __exportStar(require("./customer.service"), exports);
 __exportStar(require("./vehicleCategory.service"), exports);
 __exportStar(require("./vehicleServicing.service"), exports);
+__exportStar(require("./driverReport.service"), exports);

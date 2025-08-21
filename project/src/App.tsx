@@ -23,6 +23,8 @@ import { DriverList } from './pages/drivers/DriverList';
 import { CreateDriver } from './pages/drivers/CreateDriver';
 import { DriverProfile } from './pages/drivers/DriverProfile';
 import { EditDriver } from './pages/drivers/EditDriver';
+import { DriverManagementPage } from './pages/drivers/DriverManagement';
+import { DriverManagementDetailPage } from './pages/drivers/DriverManagementDetail';
 
 // Vehicle Pages
 import { VehicleList } from './pages/vehicles/VehicleList';
@@ -110,6 +112,14 @@ function App() {
                 <Route 
                   path="/drivers" 
                   element={<ProtectedRoute allowedRoles={['admin','dispatcher']}><DriverList /></ProtectedRoute>} 
+                />
+                <Route
+                  path="/drivers/management"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher','accountant']}><DriverManagementPage /></ProtectedRoute>}
+                />
+                <Route
+                  path="/drivers/management/:id"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher','accountant']}><DriverManagementDetailPage /></ProtectedRoute>}
                 />
                 <Route 
                   path="/drivers/create" 

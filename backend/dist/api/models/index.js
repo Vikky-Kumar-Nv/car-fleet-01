@@ -20,6 +20,7 @@ __exportStar(require("./driver.model"), exports);
 __exportStar(require("./vehicle.model"), exports);
 __exportStar(require("./company.model"), exports);
 __exportStar(require("./booking.model"), exports);
+__exportStar(require("./driverReport.model"), exports);
 __exportStar(require("./payment.model"), exports);
 __exportStar(require("./customer.model"), exports);
 __exportStar(require("./vehicleCategory.model"), exports);

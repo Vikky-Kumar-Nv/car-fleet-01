@@ -312,6 +312,39 @@ export const driverAPI = {
   }
 };
 
+// Driver Management Report API
+interface RawDriverReport { _id?: string; id?: string; driverId: string; date: string|Date; totalKm?: number; daysWorked?: number; nightsWorked?: number; nightAmount?: number; salaryRate?: number; totalAmount?: number; notes?: string; createdAt?: string|Date; updatedAt?: string|Date; }
+export const driverReportAPI = {
+  _normalize(raw: RawDriverReport) {
+    return {
+      id: raw.id || raw._id || '',
+      driverId: raw.driverId,
+      date: typeof raw.date === 'string' ? raw.date : new Date(raw.date).toISOString(),
+      totalKm: raw.totalKm,
+      daysWorked: raw.daysWorked,
+      nightsWorked: raw.nightsWorked,
+      nightAmount: raw.nightAmount,
+      salaryRate: raw.salaryRate,
+      totalAmount: raw.totalAmount,
+      notes: raw.notes,
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
+      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(raw.updatedAt || Date.now()).toISOString(),
+    };
+  },
+  listForDriverMonth: async (driverId: string, year: number, month: number) => {
+    const res = await api.get(`/drivers/${driverId}/reports`, { params: { year, month } });
+    return (res.data as RawDriverReport[]).map(driverReportAPI._normalize);
+  },
+  upsert: async (driverId: string, payload: { date: string } & Partial<Omit<RawDriverReport,'_id'|'id'|'driverId'>>) => {
+    const res = await api.put(`/drivers/${driverId}/reports`, payload);
+    return driverReportAPI._normalize(res.data as RawDriverReport);
+  },
+  listAllMonth: async (year: number, month: number) => {
+    const res = await api.get('/driver-reports', { params: { year, month } });
+    return (res.data as RawDriverReport[]).map(driverReportAPI._normalize);
+  }
+};
+
 // Booking API
 interface RawStatusChange { status: 'booked'|'ongoing'|'completed'; timestamp: string|Date; changedBy: string; _id?: string; id?: string; }
 interface RawExpense { id?: string; _id?: string; type: 'fuel'|'toll'|'parking'|'other'; amount: number; description: string; }

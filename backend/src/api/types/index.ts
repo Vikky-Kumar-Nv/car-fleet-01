@@ -201,3 +201,19 @@ export interface ICustomer {
   address?: string;
   createdAt: Date;
 }
+
+// Driver performance / management report
+export interface IDriverReportEntry {
+  _id: Types.ObjectId;
+  driverId: Types.ObjectId;
+  date: Date; // specific day within month
+  totalKm?: number;
+  daysWorked?: number; // number of day shifts counted for that date (usually 0 or 1)
+  nightsWorked?: number; // number of night shifts counted for that date (0 or 1)
+  nightAmount?: number; // amount earned for night work that date
+  salaryRate?: number; // base salary/rate reference at that time
+  totalAmount?: number; // computed = (daysWorked*salaryRate) + nightAmount or manual override
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
