@@ -317,13 +317,51 @@ interface RawStatusChange { status: 'booked'|'ongoing'|'completed'; timestamp: s
 interface RawExpense { id?: string; _id?: string; type: 'fuel'|'toll'|'parking'|'other'; amount: number; description: string; }
 interface RawDutySlip { id?: string; _id?: string; path?: string; uploadedAt?: string|Date; uploadedBy?: string; description?: string; name?: string; size?: number; data?: string; type?: string; }
 type MaybePopulated<T> = T | { _id?: string; id?: string } | undefined;
-interface RawFullBooking { _id?: string; id?: string; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: MaybePopulated<string>; pickupLocation: string; dropLocation: string; journeyType: 'outstation'|'local'|'one-way'|'round-trip'; startDate: string|Date; endDate: string|Date; vehicleId?: MaybePopulated<string>; driverId?: MaybePopulated<string>; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'; expenses: RawExpense[]; billed: boolean; statusHistory: RawStatusChange[]; dutySlips?: RawDutySlip[]; createdAt?: string|Date; }
-export interface BookingDTO { id: string; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: string; pickupLocation: string; dropLocation: string; journeyType: 'outstation'|'local'|'one-way'|'round-trip'; startDate: string; endDate: string; vehicleId?: string; driverId?: string; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'; expenses: { id: string; type: RawExpense['type']; amount: number; description: string }[]; billed: boolean; statusHistory: { id: string; status: BookingDTO['status']; timestamp: string; changedBy: string }[]; dutySlips?: RawDutySlip[]; createdAt: string; }
+interface RawCustomer { _id?: string; id?: string; name: string; phone: string; email?: string; address?: string; createdAt?: string|Date; }
+export interface CustomerDTO { id: string; name: string; phone: string; email?: string; address?: string; createdAt: string; }
+
+interface RawFullBooking { _id?: string; id?: string; customerId?: MaybePopulated<string>; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: MaybePopulated<string>; pickupLocation: string; dropLocation: string; journeyType: 'outstation'|'local'|'one-way'|'round-trip'; startDate: string|Date; endDate: string|Date; vehicleId?: MaybePopulated<string>; driverId?: MaybePopulated<string>; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'; expenses: RawExpense[]; billed: boolean; statusHistory: RawStatusChange[]; dutySlips?: RawDutySlip[]; createdAt?: string|Date; }
+export interface BookingDTO { id: string; customerId?: string; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: string; pickupLocation: string; dropLocation: string; journeyType: 'outstation'|'local'|'one-way'|'round-trip'; startDate: string; endDate: string; vehicleId?: string; driverId?: string; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'; expenses: { id: string; type: RawExpense['type']; amount: number; description: string }[]; billed: boolean; statusHistory: { id: string; status: BookingDTO['status']; timestamp: string; changedBy: string }[]; dutySlips?: RawDutySlip[]; createdAt: string; }
+
+export const customerAPI = {
+  _normalize(raw: RawCustomer): CustomerDTO {
+    return {
+      id: raw.id || raw._id || '',
+      name: raw.name,
+      phone: raw.phone,
+      email: raw.email,
+      address: raw.address,
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
+    };
+  },
+  list: async (): Promise<CustomerDTO[]> => {
+    const res = await api.get('/customers');
+    const data = res.data as { customers: RawCustomer[]; total: number } | RawCustomer[];
+    if (Array.isArray(data)) return data.map(customerAPI._normalize);
+    return data.customers.map(customerAPI._normalize);
+  },
+  get: async (id: string): Promise<CustomerDTO> => {
+    const res = await api.get(`/customers/${id}`);
+    return customerAPI._normalize(res.data as RawCustomer);
+  },
+  create: async (payload: Omit<CustomerDTO,'id'|'createdAt'>): Promise<CustomerDTO> => {
+    const res = await api.post('/customers', payload);
+    return customerAPI._normalize(res.data as RawCustomer);
+  },
+  update: async (id: string, updates: Partial<Omit<CustomerDTO,'id'>>): Promise<CustomerDTO> => {
+    const res = await api.put(`/customers/${id}`, updates);
+    return customerAPI._normalize(res.data as RawCustomer);
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/customers/${id}`);
+  }
+};
 
 export const bookingAPI = {
   _normalize(raw: RawFullBooking): BookingDTO {
     return {
       id: raw.id || raw._id || '',
+  customerId: (typeof raw.customerId === 'object' && raw.customerId?._id ? (raw.customerId._id || raw.customerId.id) : raw.customerId) as string | undefined,
       customerName: raw.customerName,
       customerPhone: raw.customerPhone,
       bookingSource: raw.bookingSource,
@@ -428,5 +466,41 @@ function normalizeVehicleDates<T extends Record<string, unknown>>(obj: T): T {
   });
   return copy as T;
 }
+
+// Vehicle Servicing API
+export interface VehicleServicingDTO {
+  vehicleId: string;
+  oilChanges: { id?: string; date?: string; price: number; kilometers: number }[];
+  partsReplacements: { id?: string; date?: string; part: string; price: number }[];
+  tyres: { id?: string; date?: string; details: string; price: number }[];
+  installments: { id?: string; date?: string; description: string; amount: number }[];
+  insurances: { id?: string; date?: string; provider?: string; policyNumber?: string; cost: number; validFrom?: string; validTo?: string }[];
+  legalPapers: { id?: string; date?: string; type: string; description?: string; cost: number; expiryDate?: string }[];
+}
+
+export const vehicleServicingAPI = {
+  get: async (vehicleId: string): Promise<VehicleServicingDTO> => {
+    const res = await api.get(`/vehicles/${vehicleId}/servicing`);
+    const data = res.data as VehicleServicingDTO;
+    // Ensure arrays exist
+    return {
+      vehicleId: data.vehicleId || vehicleId,
+      oilChanges: data.oilChanges || [],
+      partsReplacements: data.partsReplacements || [],
+      tyres: data.tyres || [],
+      installments: data.installments || [],
+      insurances: data.insurances || [],
+      legalPapers: data.legalPapers || [],
+    };
+  },
+  upsert: async (vehicleId: string, payload: Partial<VehicleServicingDTO>): Promise<VehicleServicingDTO> => {
+    await api.put(`/vehicles/${vehicleId}/servicing`, payload);
+    return vehicleServicingAPI.get(vehicleId);
+  },
+  appendSection: async <K extends keyof VehicleServicingDTO>(vehicleId: string, section: K, entries: VehicleServicingDTO[K] extends Array<infer U> ? U[] : never): Promise<VehicleServicingDTO> => {
+    await api.post(`/vehicles/${vehicleId}/servicing/${section}`, entries);
+    return vehicleServicingAPI.get(vehicleId);
+  }
+};
 
 export default api;

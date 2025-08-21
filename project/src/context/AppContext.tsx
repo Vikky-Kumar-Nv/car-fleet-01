@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Booking, Driver, Vehicle, Company, Payment, Advance } from '../types';
+import { Booking, Driver, Vehicle, Company, Payment, Advance, Customer } from '../types';
 import { mockBookings, mockDrivers, mockVehicles, mockCompanies } from '../data/mockData';
-import { companyAPI, vehicleAPI, driverAPI, bookingAPI } from '../services/api';
+import { companyAPI, vehicleAPI, driverAPI, bookingAPI, customerAPI } from '../services/api';
 
 interface AppContextType {
   // Bookings
@@ -34,6 +34,13 @@ interface AppContextType {
   addCompany: (company: Omit<Company, 'id' | 'createdAt'>) => void;
   updateCompany: (id: string, updates: Partial<Company>) => void;
   deleteCompany: (id: string) => void;
+
+  // Customers
+  customers: Customer[];
+  addCustomer: (customer: Omit<Customer,'id'|'createdAt'>) => void;
+  updateCustomer: (id: string, updates: Partial<Customer>) => void;
+  deleteCustomer: (id: string) => void;
+  customersLoading?: boolean;
   
   // Payments
   payments: Payment[];
@@ -53,7 +60,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -139,6 +148,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCompanies(mockCompanies);
       }
     })();
+    // Customers fetch
+    (async () => {
+      try {
+        setCustomersLoading(true);
+        const list = await customerAPI.list();
+        const normalized: Customer[] = list.map(c => ({ ...c } as Customer));
+        setCustomers(normalized);
+        localStorage.setItem('bolt_customers', JSON.stringify(normalized));
+      } catch (err) {
+        console.error('Failed to load customers from API', err);
+        const saved = localStorage.getItem('bolt_customers');
+        if (saved) {
+          try { setCustomers(JSON.parse(saved)); } catch { setCustomers([]); }
+        } else {
+          setCustomers([]);
+        }
+      } finally {
+        setCustomersLoading(false);
+      }
+    })();
     setPayments(savedPayments ? JSON.parse(savedPayments) : []);
   }, []);
 
@@ -172,6 +201,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     localStorage.setItem('bolt_companies', JSON.stringify(companies));
   }, [companies]);
+
+  useEffect(() => {
+    localStorage.setItem('bolt_customers', JSON.stringify(customers));
+  }, [customers]);
 
   useEffect(() => {
     localStorage.setItem('bolt_payments', JSON.stringify(payments));
@@ -333,6 +366,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Customer functions
+  const addCustomer = async (customer: Omit<Customer,'id'|'createdAt'>) => {
+    try {
+      const created = await customerAPI.create(customer);
+      setCustomers(prev => [...prev, created as Customer]);
+    } catch (err) {
+      console.error('Create customer failed', err);
+    }
+  };
+
+  const updateCustomer = async (id: string, updates: Partial<Customer>) => {
+    try {
+      const updated = await customerAPI.update(id, updates);
+      setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
+    } catch (err) {
+      console.error('Update customer failed', err);
+    }
+  };
+
+  const deleteCustomer = async (id: string) => {
+    try {
+      await customerAPI.delete(id);
+      setCustomers(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('Delete customer failed', err);
+    }
+  };
+
   // Payment functions
   const addPayment = (payment: Omit<Payment, 'id'>) => {
     const newPayment: Payment = { ...payment, id: Date.now().toString() };
@@ -393,6 +454,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDrivers(mockDrivers);
     setVehicles(mockVehicles);
     setCompanies(mockCompanies);
+  setCustomers([]);
     setPayments([]);
     localStorage.setItem('bolt_bookings', JSON.stringify(mockBookings));
     localStorage.setItem('bolt_drivers', JSON.stringify(mockDrivers));
@@ -406,7 +468,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   bookings, addBooking, updateBooking, deleteBooking, updateBookingStatus, toggleBookingBilled, bookingsLoading,
   drivers, addDriver, updateDriver, deleteDriver, addDriverAdvance, driversLoading,
   vehicles, addVehicle, updateVehicle, deleteVehicle, vehiclesLoading,
-      companies, addCompany, updateCompany, deleteCompany,
+  companies, addCompany, updateCompany, deleteCompany,
+  customers, addCustomer, updateCustomer, deleteCustomer, customersLoading,
   payments, addPayment, settleDriverAdvance, recordCompanyPayment, resetSampleData,
     }}>
       {children}

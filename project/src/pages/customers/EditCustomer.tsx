@@ -1,0 +1,77 @@
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useApp } from '../../context/AppContext';
+import { Card, CardHeader, CardContent } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
+import toast from 'react-hot-toast';
+
+const customerSchema = z.object({
+  name: z.string().min(1, 'Name required'),
+  phone: z.string().min(10, 'Phone required'),
+  email: z.string().email('Invalid email').optional().or(z.literal('').transform(()=>undefined)),
+  address: z.string().optional(),
+});
+
+type CustomerForm = z.infer<typeof customerSchema>;
+
+export const EditCustomer: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const { customers, updateCustomer } = useApp();
+  const navigate = useNavigate();
+
+  const customer = customers.find(c => c.id === id);
+
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<CustomerForm>({ resolver: zodResolver(customerSchema) });
+
+  useEffect(() => {
+    if (customer) {
+      reset({ name: customer.name, phone: customer.phone, email: customer.email, address: customer.address });
+    }
+  }, [customer, reset]);
+
+  const onSubmit = async (data: CustomerForm) => {
+    if (!id) return;
+    try {
+      await updateCustomer(id, data);
+      toast.success('Customer updated');
+      navigate(`/customers/${id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Update failed');
+    }
+  };
+
+  if (!customer) return <div className="p-6 text-gray-500">Customer not found (maybe refresh?)</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4">
+        <Button variant="outline" onClick={()=>navigate(`/customers/${id}`)}>Back</Button>
+        <h1 className="text-3xl font-bold text-gray-900">Edit Customer</h1>
+      </div>
+      <Card>
+        <CardHeader>
+          <h2 className="text-xl font-semibold">Customer Details</h2>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input {...register('name')} label="Name" error={errors.name?.message} placeholder="Full name" />
+              <Input {...register('phone')} label="Phone" error={errors.phone?.message} placeholder="Phone number" />
+              <Input {...register('email')} label="Email" error={errors.email?.message} placeholder="email@example.com" />
+              <Input {...register('address')} label="Address" error={errors.address?.message} placeholder="Address" />
+            </div>
+            <div className="flex justify-end space-x-4">
+              <Button type="button" variant="outline" onClick={()=>navigate(`/customers/${id}`)}>Cancel</Button>
+              <Button type="submit" loading={isSubmitting}>Save</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};

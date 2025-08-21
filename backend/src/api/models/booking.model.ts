@@ -23,6 +23,7 @@ const dutySlipSchema = new Schema({
 });
 
 const bookingSchema = new Schema<IBooking>({
+  customerId: { type: Schema.Types.ObjectId, ref: 'Customer' },
   customerName: { type: String, required: true },
   customerPhone: { type: String, required: true },
   bookingSource: { type: String, required: true, enum: ['company', 'travel-agency', 'individual'] },

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { vehicleServicingAPI, VehicleServicingDTO } from '../../services/api';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
@@ -10,6 +11,18 @@ export const VehicleDetails: React.FC = () => {
   const navigate = useNavigate();
   const { vehicles, bookings } = useApp();
   const vehicle = vehicles.find(v => v.id === id);
+  const [servicing, setServicing] = useState<VehicleServicingDTO | null>(null);
+  const [servicingLoading, setServicingLoading] = useState(false);
+
+  useEffect(() => {
+    if (vehicle?.id) {
+      setServicingLoading(true);
+      vehicleServicingAPI.get(vehicle.id)
+        .then(setServicing)
+        .catch(() => setServicing(null))
+        .finally(() => setServicingLoading(false));
+    }
+  }, [vehicle?.id]);
 
   if (!vehicle) {
     return (
@@ -34,6 +47,9 @@ export const VehicleDetails: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900">{vehicle.registrationNumber}</h1>
         <Button variant="outline" onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}>
           <Icon name="edit" className="h-4 w-4 mr-2" /> Edit
+        </Button>
+        <Button variant="outline" onClick={() => navigate('/vehicles/servicing/manage', { state: { vehicleId: vehicle.id } })}>
+          <Icon name="car" className="h-4 w-4 mr-2" /> Servicing
         </Button>
       </div>
 
@@ -84,6 +100,97 @@ export const VehicleDetails: React.FC = () => {
             <p className="text-xl font-bold text-amber-700">{completedTrips}</p>
             <p className="text-xs text-gray-500">Completed</p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Servicing Summary</h2>
+            <div>
+              <Button size="sm" variant="outline" onClick={() => navigate('/vehicles/servicing/manage', { state: { vehicleId: vehicle.id } })}>
+                <Icon name="car" className="h-4 w-4 mr-1" /> Manage
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {servicingLoading && <p className="text-sm text-gray-500">Loading servicing data...</p>}
+          {!servicingLoading && servicing && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 text-sm">
+                <div>
+                  <p className="font-medium mb-1">Oil Changes</p>
+                  {servicing.oilChanges.length > 0 ? (
+                    <ul className="space-y-1">
+                      <li className="flex justify-between"><span className="text-gray-600">Total:</span> <span>{servicing.oilChanges.length}</span></li>
+                      <li className="flex justify-between"><span className="text-gray-600">Last Km:</span> <span>{servicing.oilChanges[servicing.oilChanges.length-1].kilometers}</span></li>
+                      <li className="flex justify-between"><span className="text-gray-600">Last Price:</span> <span>₹{servicing.oilChanges[servicing.oilChanges.length-1].price}</span></li>
+                    </ul>
+                  ) : <p className="text-gray-500 text-xs">None</p>}
+                </div>
+                <div>
+                  <p className="font-medium mb-1">Parts</p>
+                  {servicing.partsReplacements.length > 0 ? (
+                    <ul className="space-y-1">
+                      <li className="flex justify-between"><span className="text-gray-600">Items:</span> <span>{servicing.partsReplacements.length}</span></li>
+                      <li className="flex justify-between"><span className="text-gray-600">Total:</span> <span>₹{servicing.partsReplacements.reduce((s,p)=>s+p.price,0).toLocaleString()}</span></li>
+                      <li className="flex justify-between break-all"><span className="text-gray-600">Last:</span> <span>{servicing.partsReplacements[servicing.partsReplacements.length-1].part}</span></li>
+                    </ul>
+                  ) : <p className="text-gray-500 text-xs">None</p>}
+                </div>
+                <div>
+                  <p className="font-medium mb-1">Tyres</p>
+                  {servicing.tyres.length > 0 ? (
+                    <ul className="space-y-1">
+                      <li className="flex justify-between"><span className="text-gray-600">Entries:</span> <span>{servicing.tyres.length}</span></li>
+                      <li className="flex justify-between"><span className="text-gray-600">Total:</span> <span>₹{servicing.tyres.reduce((s,t)=>s+t.price,0).toLocaleString()}</span></li>
+                      <li className="flex justify-between break-all"><span className="text-gray-600">Last:</span> <span>{servicing.tyres[servicing.tyres.length-1].details}</span></li>
+                    </ul>
+                  ) : <p className="text-gray-500 text-xs">None</p>}
+                </div>
+                <div>
+                  <p className="font-medium mb-1">Installments</p>
+                  {servicing.installments.length > 0 ? (
+                    <ul className="space-y-1">
+                      <li className="flex justify-between"><span className="text-gray-600">Count:</span> <span>{servicing.installments.length}</span></li>
+                      <li className="flex justify-between"><span className="text-gray-600">Total:</span> <span>₹{servicing.installments.reduce((s,a)=>s+a.amount,0).toLocaleString()}</span></li>
+                      <li className="flex justify-between break-all"><span className="text-gray-600">Last:</span> <span>{servicing.installments[servicing.installments.length-1].amount}</span></li>
+                    </ul>
+                  ) : <p className="text-gray-500 text-xs">None</p>}
+                </div>
+                <div>
+                  <p className="font-medium mb-1">Insurance</p>
+                  {servicing.insurances.length > 0 ? (
+                    <ul className="space-y-1">
+                      <li className="flex justify-between"><span className="text-gray-600">Policies:</span> <span>{servicing.insurances.length}</span></li>
+                      <li className="flex justify-between"><span className="text-gray-600">Total:</span> <span>₹{servicing.insurances.reduce((s,i)=>s+i.cost,0).toLocaleString()}</span></li>
+                      <li className="flex justify-between"><span className="text-gray-600">Last:</span> <span>₹{servicing.insurances[servicing.insurances.length-1].cost}</span></li>
+                    </ul>
+                  ) : <p className="text-gray-500 text-xs">None</p>}
+                </div>
+                <div>
+                  <p className="font-medium mb-1">Legal Papers</p>
+                  {servicing.legalPapers.length > 0 ? (() => {
+                    const total = servicing.legalPapers.reduce((s,l)=>s+l.cost,0);
+                    const nextExpiry = servicing.legalPapers
+                      .filter(l=>l.expiryDate)
+                      .sort((a,b)=> (a.expiryDate! > b.expiryDate! ? 1 : -1))[0]?.expiryDate;
+                    return (
+                      <ul className="space-y-1">
+                        <li className="flex justify-between"><span className="text-gray-600">Entries:</span> <span>{servicing.legalPapers.length}</span></li>
+                        <li className="flex justify-between"><span className="text-gray-600">Total:</span> <span>₹{total.toLocaleString()}</span></li>
+                        <li className="flex justify-between"><span className="text-gray-600">Next Exp:</span> <span>{nextExpiry ? nextExpiry.slice(0,10) : '—'}</span></li>
+                      </ul>
+                    );
+                  })() : <p className="text-gray-500 text-xs">None</p>}
+                </div>
+              </div>
+            </>
+          )}
+          {!servicingLoading && !servicing && (
+            <p className="text-sm text-gray-500">No servicing data yet. <button className="text-amber-600 underline" onClick={() => navigate('/vehicles/servicing/manage', { state: { vehicleId: vehicle.id } })}>Add now</button></p>
+          )}
         </CardContent>
       </Card>
 

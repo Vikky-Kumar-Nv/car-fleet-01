@@ -5,8 +5,9 @@ import { vehicleSchema, updateVehicleSchema } from '../validation';
 
 export const createVehicle = async (req: Request, res: Response) => {
   const data = vehicleSchema.parse(req.body);
-  const vehicleData = {
+  const vehicleData: any = {
     ...data,
+    // if categoryId provided, allow category to be undefined; else require category (already validated by zod refine)
     insuranceExpiry: new Date(data.insuranceExpiry),
     fitnessExpiry: new Date(data.fitnessExpiry),
     permitExpiry: new Date(data.permitExpiry),

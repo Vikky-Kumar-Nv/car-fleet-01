@@ -46,6 +46,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       roles: ['admin', 'accountant', 'dispatcher']
     },
     {
+      name: 'Customers',
+      href: '/customers',
+      icon: 'user',
+      roles: ['admin', 'dispatcher', 'accountant']
+    },
+    {
       name: 'Finance',
       href: '/finance',
   icon: 'money',

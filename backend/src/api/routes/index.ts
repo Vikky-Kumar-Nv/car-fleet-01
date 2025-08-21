@@ -7,6 +7,9 @@ import { companyRouter } from './company.route';
 import { paymentRouter } from './payment.route';
 import { reportRouter } from './report.route';
 import { financeRouter } from './finance.route';
+import { customerRouter } from './customer.route';
+import { vehicleCategoryRouter } from './vehicleCategory.route';
+import { vehicleServicingRouter } from './vehicleServicing.route';
 import { apiLimiter } from '../middleware';
 
 const router = Router();
@@ -19,5 +22,8 @@ router.use('/companies', apiLimiter, companyRouter);
 router.use('/payments', apiLimiter, paymentRouter);
 router.use('/reports', apiLimiter, reportRouter);
 router.use('/finance', apiLimiter, financeRouter);
+router.use('/customers', apiLimiter, customerRouter);
+router.use('/vehicle-categories', apiLimiter, vehicleCategoryRouter);
+router.use('/vehicles', apiLimiter, vehicleServicingRouter); // nested servicing endpoints under /vehicles/:vehicleId/servicing
 
 export { router as apiRouter };

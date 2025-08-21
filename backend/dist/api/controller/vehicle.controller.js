@@ -37,7 +37,9 @@ const service = __importStar(require("../services"));
 const validation_1 = require("../validation");
 const createVehicle = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = validation_1.vehicleSchema.parse(req.body);
-    const vehicleData = Object.assign(Object.assign({}, data), { insuranceExpiry: new Date(data.insuranceExpiry), fitnessExpiry: new Date(data.fitnessExpiry), permitExpiry: new Date(data.permitExpiry), pollutionExpiry: new Date(data.pollutionExpiry), status: 'active' });
+    const vehicleData = Object.assign(Object.assign({}, data), { 
+        // if categoryId provided, allow category to be undefined; else require category (already validated by zod refine)
+        insuranceExpiry: new Date(data.insuranceExpiry), fitnessExpiry: new Date(data.fitnessExpiry), permitExpiry: new Date(data.permitExpiry), pollutionExpiry: new Date(data.pollutionExpiry), status: 'active' });
     const vehicle = yield service.createVehicle(vehicleData);
     res.status(201).json(vehicle);
 });

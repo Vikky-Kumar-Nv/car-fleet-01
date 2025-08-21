@@ -128,6 +128,7 @@ export const loginSchema = z.object({
 export const updateUserSchema = registerSchema.partial();
 
 export const bookingSchema = z.object({
+  customerId: z.string().optional(),
   customerName: z.string().min(1, 'Customer name required'),
   customerPhone: z.string().min(10, 'Invalid phone'),
   bookingSource: z.enum(['company', 'travel-agency', 'individual']),
@@ -147,6 +148,15 @@ export const bookingSchema = z.object({
 export const updateBookingSchema = bookingSchema.partial().extend({
   billed: z.boolean().optional(),
 });
+
+export const customerSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().min(10),
+  email: z.string().email().optional(),
+  address: z.string().optional(),
+});
+
+export const updateCustomerSchema = customerSchema.partial();
 
 export const expenseSchema = z.object({
   type: z.enum(['fuel', 'toll', 'parking', 'other']),
@@ -180,19 +190,86 @@ export const advanceSchema = z.object({
 
 export const vehicleSchema = z.object({
   registrationNumber: z.string().min(1),
-  category: z.enum(['SUV', 'sedan', 'bus', 'mini-bus']),
+  // Accept either a free-form legacy category string or a managed categoryId (one must be provided)
+  category: z.string().min(1).optional(),
+  categoryId: z.string().optional(),
   owner: z.enum(['owned', 'rented']),
   insuranceExpiry: z.string().datetime(),
   fitnessExpiry: z.string().datetime(),
   permitExpiry: z.string().datetime(),
   pollutionExpiry: z.string().datetime(),
-});
+}).refine(d => !!d.category || !!d.categoryId, { message: 'category or categoryId is required', path: ['category'] });
 
 export const updateVehicleSchema = vehicleSchema.partial().extend({
   status: z.enum(['active', 'maintenance', 'inactive']).optional(),
   mileageTrips: z.number().optional(),
   mileageKm: z.number().optional(),
 });
+
+// Vehicle Category
+export const vehicleCategorySchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+
+export const updateVehicleCategorySchema = vehicleCategorySchema.partial();
+
+// Vehicle Servicing validation (allows partial updates of arrays of records)
+const dateString = z.string().datetime().optional();
+
+const oilChangeItem = z.object({
+  _id: z.string().optional(),
+  date: z.string().datetime().optional(),
+  price: z.number().min(0),
+  kilometers: z.number().min(0),
+});
+const partReplacementItem = z.object({
+  _id: z.string().optional(),
+  date: z.string().datetime().optional(),
+  part: z.string().min(1),
+  price: z.number().min(0),
+});
+const tyreItem = z.object({
+  _id: z.string().optional(),
+  date: z.string().datetime().optional(),
+  details: z.string().min(1),
+  price: z.number().min(0),
+});
+const installmentItem = z.object({
+  _id: z.string().optional(),
+  date: z.string().datetime().optional(),
+  description: z.string().min(1),
+  amount: z.number().min(0),
+});
+const insuranceItem = z.object({
+  _id: z.string().optional(),
+  date: z.string().datetime().optional(),
+  provider: z.string().optional(),
+  policyNumber: z.string().optional(),
+  cost: z.number().min(0),
+  validFrom: z.string().datetime().optional(),
+  validTo: z.string().datetime().optional(),
+});
+const legalPaperItem = z.object({
+  _id: z.string().optional(),
+  date: z.string().datetime().optional(),
+  type: z.string().min(1),
+  description: z.string().optional(),
+  cost: z.number().min(0),
+  expiryDate: z.string().datetime().optional(),
+});
+
+export const vehicleServicingSchema = z.object({
+  vehicleId: z.string().min(1),
+  oilChanges: z.array(oilChangeItem).optional(),
+  partsReplacements: z.array(partReplacementItem).optional(),
+  tyres: z.array(tyreItem).optional(),
+  installments: z.array(installmentItem).optional(),
+  insurances: z.array(insuranceItem).optional(),
+  legalPapers: z.array(legalPaperItem).optional(),
+});
+
+export const updateVehicleServicingSchema = vehicleServicingSchema.partial();
 
 export const companySchema = z.object({
   name: z.string().min(1),

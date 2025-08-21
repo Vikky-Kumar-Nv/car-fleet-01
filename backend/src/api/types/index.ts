@@ -36,7 +36,9 @@ export interface IDriver {
 export interface IVehicle {
   _id: Types.ObjectId;
   registrationNumber: string;
-  category: 'SUV' | 'sedan' | 'bus' | 'mini-bus';
+  // Keep legacy string category for backward compatibility; prefer using categoryId referencing VehicleCategory
+  category: string; // previously enum
+  categoryId?: Types.ObjectId; // new reference
   owner: 'owned' | 'rented';
   insuranceExpiry: Date;
   fitnessExpiry: Date;
@@ -46,6 +48,65 @@ export interface IVehicle {
   mileageTrips?: number;
   mileageKm?: number;
   createdAt: Date;
+}
+
+export interface IVehicleCategory {
+  _id: Types.ObjectId;
+  name: string;
+  description?: string;
+  createdAt: Date;
+}
+
+export interface IVehicleServicingRecordBase {
+  date: Date;
+}
+
+export interface IOilChange extends IVehicleServicingRecordBase {
+  price: number;
+  kilometers: number;
+}
+
+export interface IPartReplacement extends IVehicleServicingRecordBase {
+  part: string;
+  price: number;
+}
+
+export interface ITyreEntry extends IVehicleServicingRecordBase {
+  details: string; // description or brand/model
+  price: number;
+}
+
+export interface IInstallment extends IVehicleServicingRecordBase {
+  description: string;
+  amount: number;
+}
+
+export interface IInsuranceEntry extends IVehicleServicingRecordBase {
+  provider?: string;
+  policyNumber?: string;
+  cost: number;
+  validFrom?: Date;
+  validTo?: Date;
+}
+
+export interface ILegalPaperEntry extends IVehicleServicingRecordBase {
+  type: string; // pollution, registration, other
+  description?: string;
+  cost: number;
+  expiryDate?: Date;
+}
+
+export interface IVehicleServicing {
+  _id: Types.ObjectId;
+  vehicleId: Types.ObjectId;
+  oilChanges: IOilChange[];
+  partsReplacements: IPartReplacement[];
+  tyres: ITyreEntry[];
+  installments: IInstallment[];
+  insurances: IInsuranceEntry[];
+  legalPapers: ILegalPaperEntry[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ICompany {
@@ -108,6 +169,7 @@ export interface IDutySlip {
 
 export interface IBooking {
   _id: Types.ObjectId;
+  customerId?: Types.ObjectId; // reference to Customer (optional for backward compatibility)
   customerName: string;
   customerPhone: string;
   bookingSource: 'company' | 'travel-agency' | 'individual';
@@ -129,4 +191,13 @@ export interface IBooking {
   billed: boolean;
   createdAt: Date;
   statusHistory: IStatusChange[];
+}
+
+export interface ICustomer {
+  _id: Types.ObjectId;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  createdAt: Date;
 }

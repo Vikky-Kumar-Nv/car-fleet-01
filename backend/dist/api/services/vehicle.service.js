@@ -28,14 +28,14 @@ const getVehicles = (page, limit, filters) => __awaiter(void 0, void 0, void 0, 
         query['category'] = filters.category;
     const skip = (page - 1) * limit;
     const [vehicles, total] = yield Promise.all([
-        models_1.Vehicle.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }),
+        models_1.Vehicle.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).populate('categoryId'),
         models_1.Vehicle.countDocuments(query),
     ]);
     return { vehicles, total };
 });
 exports.getVehicles = getVehicles;
 const getVehicleById = (id) => __awaiter(void 0, void 0, void 0, function* () {
-    return models_1.Vehicle.findById(id);
+    return models_1.Vehicle.findById(id).populate('categoryId');
 });
 exports.getVehicleById = getVehicleById;
 const updateVehicle = (id, updates) => __awaiter(void 0, void 0, void 0, function* () {

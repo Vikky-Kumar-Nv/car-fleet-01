@@ -10,6 +10,9 @@ const company_route_1 = require("./company.route");
 const payment_route_1 = require("./payment.route");
 const report_route_1 = require("./report.route");
 const finance_route_1 = require("./finance.route");
+const customer_route_1 = require("./customer.route");
+const vehicleCategory_route_1 = require("./vehicleCategory.route");
+const vehicleServicing_route_1 = require("./vehicleServicing.route");
 const middleware_1 = require("../middleware");
 const router = (0, express_1.Router)();
 exports.apiRouter = router;
@@ -21,3 +24,6 @@ router.use('/companies', middleware_1.apiLimiter, company_route_1.companyRouter)
 router.use('/payments', middleware_1.apiLimiter, payment_route_1.paymentRouter);
 router.use('/reports', middleware_1.apiLimiter, report_route_1.reportRouter);
 router.use('/finance', middleware_1.apiLimiter, finance_route_1.financeRouter);
+router.use('/customers', middleware_1.apiLimiter, customer_route_1.customerRouter);
+router.use('/vehicle-categories', middleware_1.apiLimiter, vehicleCategory_route_1.vehicleCategoryRouter);
+router.use('/vehicles', middleware_1.apiLimiter, vehicleServicing_route_1.vehicleServicingRouter); // nested servicing endpoints under /vehicles/:vehicleId/servicing

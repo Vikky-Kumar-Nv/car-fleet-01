@@ -23,3 +23,6 @@ __exportStar(require("./company.service"), exports);
 __exportStar(require("./payment.service"), exports);
 __exportStar(require("./report.service"), exports);
 __exportStar(require("./finance.service"), exports);
+__exportStar(require("./customer.service"), exports);
+__exportStar(require("./vehicleCategory.service"), exports);
+__exportStar(require("./vehicleServicing.service"), exports);

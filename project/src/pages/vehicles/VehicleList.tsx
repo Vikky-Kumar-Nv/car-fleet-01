@@ -141,10 +141,15 @@ export const VehicleList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Vehicles</h1>
-        <Button onClick={() => navigate('/vehicles/create')}>
-          <Icon name="plus" className="h-4 w-4 mr-2" />
-          New Vehicle
-        </Button>
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" onClick={() => navigate('/vehicles/servicing/manage')}>
+            <Icon name="car" className="h-4 w-4 mr-2" /> Servicing
+          </Button>
+          <Button onClick={() => navigate('/vehicles/create')}>
+            <Icon name="plus" className="h-4 w-4 mr-2" />
+            New Vehicle
+          </Button>
+        </div>
       </div>
 
       {vehiclesLoading ? (

@@ -5,7 +5,8 @@ exports.Vehicle = void 0;
 const mongoose_1 = require("mongoose");
 const vehicleSchema = new mongoose_1.Schema({
     registrationNumber: { type: String, required: true, unique: true, index: true },
-    category: { type: String, required: true },
+    category: { type: String, required: false }, // optional if categoryId provided
+    categoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'VehicleCategory', required: false, index: true },
     owner: { type: String, required: true },
     insuranceExpiry: { type: Date, required: true, index: true },
     fitnessExpiry: { type: Date, required: true, index: true },

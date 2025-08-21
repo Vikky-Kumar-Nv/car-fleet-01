@@ -44,6 +44,23 @@ export interface Vehicle {
   createdAt: string;
 }
 
+export interface OilChangeEntry { id?: string; date?: string; price: number; kilometers: number; }
+export interface PartReplacementEntry { id?: string; date?: string; part: string; price: number; }
+export interface TyreEntry { id?: string; date?: string; details: string; price: number; }
+export interface InstallmentEntry { id?: string; date?: string; description: string; amount: number; }
+export interface InsuranceEntry { id?: string; date?: string; provider?: string; policyNumber?: string; cost: number; validFrom?: string; validTo?: string; }
+export interface LegalPaperEntry { id?: string; date?: string; type: string; description?: string; cost: number; expiryDate?: string; }
+
+export interface VehicleServicingDoc {
+  vehicleId: string;
+  oilChanges: OilChangeEntry[];
+  partsReplacements: PartReplacementEntry[];
+  tyres: TyreEntry[];
+  installments: InstallmentEntry[];
+  insurances: InsuranceEntry[];
+  legalPapers: LegalPaperEntry[];
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -58,6 +75,7 @@ export interface Company {
 
 export interface Booking {
   id: string;
+  customerId?: string; // reference to customer entity
   customerName: string;
   customerPhone: string;
   bookingSource: 'company' | 'travel-agency' | 'individual';
@@ -79,6 +97,15 @@ export interface Booking {
   billed: boolean;
   createdAt: string;
   statusHistory: StatusChange[];
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  createdAt: string;
 }
 
 export interface Expense {

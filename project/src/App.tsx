@@ -29,12 +29,19 @@ import { VehicleList } from './pages/vehicles/VehicleList';
 import { CreateVehicle } from './pages/vehicles/CreateVehicle';
 import { VehicleDetails } from './pages/vehicles/VehicleDetails';
 import { EditVehicle } from './pages/vehicles/EditVehicle';
+import { VehicleServicingPage } from './pages/vehicles/VehicleServicing';
 
 // Company Pages
 import { CompanyList } from './pages/companies/CompanyList';
 import { CreateCompany } from './pages/companies/CreateCompany';
 import { CompanyDetails } from './pages/companies/CompanyDetails';
 import { EditCompany } from './pages/companies/EditCompany';
+
+// Customer Pages
+import { CustomerList } from './pages/customers/CustomerList';
+import { CreateCustomer } from './pages/customers/CreateCustomer';
+import { CustomerDetails } from './pages/customers/CustomerDetails';
+import { EditCustomer } from './pages/customers/EditCustomer';
 
 // Finance Pages
 import { Finance } from './pages/finance/Finance';
@@ -133,6 +140,10 @@ function App() {
                   path="/vehicles/:id/edit" 
                   element={<ProtectedRoute allowedRoles={['admin','dispatcher']}><EditVehicle /></ProtectedRoute>} 
                 />
+                <Route
+                  path="/vehicles/servicing/manage"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher']}><VehicleServicingPage /></ProtectedRoute>}
+                />
                 {/* Companies */}
                 <Route 
                   path="/companies" 
@@ -149,6 +160,23 @@ function App() {
                 <Route 
                   path="/companies/:id/edit" 
                   element={<ProtectedRoute allowedRoles={['admin','accountant','dispatcher']}><EditCompany /></ProtectedRoute>} 
+                />
+                {/* Customers */}
+                <Route
+                  path="/customers"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher','accountant']}><CustomerList /></ProtectedRoute>}
+                />
+                <Route
+                  path="/customers/create"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher','accountant']}><CreateCustomer /></ProtectedRoute>}
+                />
+                <Route
+                  path="/customers/:id"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher','accountant']}><CustomerDetails /></ProtectedRoute>}
+                />
+                <Route
+                  path="/customers/:id/edit"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher','accountant']}><EditCustomer /></ProtectedRoute>}
                 />
                 {/* Finance */}
                 <Route 

@@ -38,7 +38,7 @@ const service = __importStar(require("../services"));
 const validation_1 = require("../validation");
 const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = validation_1.bookingSchema.parse(req.body);
-    const bookingData = Object.assign(Object.assign({}, data), { companyId: data.companyId ? new mongoose_1.Types.ObjectId(data.companyId) : undefined, vehicleId: data.vehicleId ? new mongoose_1.Types.ObjectId(data.vehicleId) : undefined, driverId: data.driverId ? new mongoose_1.Types.ObjectId(data.driverId) : undefined, startDate: new Date(data.startDate), endDate: new Date(data.endDate), status: 'booked' });
+    const bookingData = Object.assign(Object.assign({}, data), { customerId: data.customerId ? new mongoose_1.Types.ObjectId(data.customerId) : undefined, companyId: data.companyId ? new mongoose_1.Types.ObjectId(data.companyId) : undefined, vehicleId: data.vehicleId ? new mongoose_1.Types.ObjectId(data.vehicleId) : undefined, driverId: data.driverId ? new mongoose_1.Types.ObjectId(data.driverId) : undefined, startDate: new Date(data.startDate), endDate: new Date(data.endDate), status: 'booked' });
     const booking = yield service.createBooking(bookingData);
     res.status(201).json(booking);
 });
@@ -68,6 +68,8 @@ const updateBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         updateData.vehicleId = new mongoose_1.Types.ObjectId(updateData.vehicleId);
     if (updateData.driverId)
         updateData.driverId = new mongoose_1.Types.ObjectId(updateData.driverId);
+    if (updateData.customerId)
+        updateData.customerId = new mongoose_1.Types.ObjectId(updateData.customerId);
     // Convert date strings to Date objects
     if (updateData.startDate)
         updateData.startDate = new Date(updateData.startDate);

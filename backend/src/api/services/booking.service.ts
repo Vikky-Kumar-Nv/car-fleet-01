@@ -17,7 +17,7 @@ export const createBooking = async (data: Omit<IBooking, '_id' | 'createdAt' | '
     }],
   });
   await booking.save();
-  return booking.populate('companyId driverId vehicleId');
+  return booking.populate('companyId driverId vehicleId customerId');
 };
 
 export const getBookings = async (page: number, limit: number, filters: any) => {
@@ -30,14 +30,14 @@ export const getBookings = async (page: number, limit: number, filters: any) => 
 
   const skip = (page - 1) * limit;
   const [bookings, total] = await Promise.all([
-    Booking.find(query).populate('companyId driverId vehicleId').skip(skip).limit(limit).sort({ startDate: -1 }),
+  Booking.find(query).populate('companyId driverId vehicleId customerId').skip(skip).limit(limit).sort({ startDate: -1 }),
     Booking.countDocuments(query),
   ]);
   return { bookings, total };
 };
 
 export const getBookingById = async (id: string) => {
-  return Booking.findById(id).populate('companyId driverId vehicleId');
+  return Booking.findById(id).populate('companyId driverId vehicleId customerId');
 };
 
 export const updateBooking = async (id: string, updates: Partial<IBooking>) => {
@@ -56,7 +56,7 @@ export const updateBooking = async (id: string, updates: Partial<IBooking>) => {
     updateDoc.status = updates.status;
     updateDoc.$push = { statusHistory: { status: updates.status, timestamp: new Date(), changedBy: 'System' } };
   }
-  return Booking.findByIdAndUpdate(id, updateDoc, { new: true, runValidators: true }).populate('companyId driverId vehicleId');
+  return Booking.findByIdAndUpdate(id, updateDoc, { new: true, runValidators: true }).populate('companyId driverId vehicleId customerId');
 };
 
 export const deleteBooking = async (id: string) => {
@@ -64,12 +64,12 @@ export const deleteBooking = async (id: string) => {
 };
 
 export const addExpense = async (bookingId: string, expense: IBooking['expenses'][0]) => {
-  return Booking.findByIdAndUpdate(bookingId, { $push: { expenses: expense } }, { new: true }).populate('companyId driverId vehicleId');
+  return Booking.findByIdAndUpdate(bookingId, { $push: { expenses: expense } }, { new: true }).populate('companyId driverId vehicleId customerId');
 };
 
 export const updateStatus = async (bookingId: string, status: IBooking['status'], changedBy: string) => {
   const change = { status, timestamp: new Date(), changedBy };
-  return Booking.findByIdAndUpdate(bookingId, { status, $push: { statusHistory: change } }, { new: true }).populate('companyId driverId vehicleId');
+  return Booking.findByIdAndUpdate(bookingId, { status, $push: { statusHistory: change } }, { new: true }).populate('companyId driverId vehicleId customerId');
 };
 
 export const uploadDutySlips = async (bookingId: string, files: Express.Multer.File[], uploadedBy: string) => {
@@ -79,9 +79,9 @@ export const uploadDutySlips = async (bookingId: string, files: Express.Multer.F
     uploadedAt: new Date(),
     description: `Duty slip uploaded at ${new Date().toISOString()}`,
   }));
-  return Booking.findByIdAndUpdate(bookingId, { $push: { dutySlips: { $each: dutySlips } } }, { new: true }).populate('companyId driverId vehicleId');
+  return Booking.findByIdAndUpdate(bookingId, { $push: { dutySlips: { $each: dutySlips } } }, { new: true }).populate('companyId driverId vehicleId customerId');
 };
 
 export const removeDutySlip = async (bookingId: string, dutySlipPath: string) => {
-  return Booking.findByIdAndUpdate(bookingId, { $pull: { dutySlips: { path: dutySlipPath } } }, { new: true }).populate('companyId driverId vehicleId');
+  return Booking.findByIdAndUpdate(bookingId, { $pull: { dutySlips: { path: dutySlipPath } } }, { new: true }).populate('companyId driverId vehicleId customerId');
 };

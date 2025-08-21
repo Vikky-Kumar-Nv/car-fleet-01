@@ -15,14 +15,14 @@ export const getVehicles = async (page: number, limit: number, filters: any) => 
   if (filters.category) query['category'] = filters.category;
   const skip = (page - 1) * limit;
   const [vehicles, total] = await Promise.all([
-    Vehicle.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }),
+    Vehicle.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).populate('categoryId'),
     Vehicle.countDocuments(query),
   ]);
   return { vehicles, total };
 };
 
 export const getVehicleById = async (id: string) => {
-  return Vehicle.findById(id);
+  return Vehicle.findById(id).populate('categoryId');
 };
 
 export const updateVehicle = async (id: string, updates: Partial<IVehicle>) => {

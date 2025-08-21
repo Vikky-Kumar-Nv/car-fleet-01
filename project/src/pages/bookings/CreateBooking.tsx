@@ -32,12 +32,13 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 
 export const CreateBooking: React.FC = () => {
   const navigate = useNavigate();
-  const { addBooking, drivers, vehicles, companies } = useApp();
+  const { addBooking, drivers, vehicles, companies, customers } = useApp();
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -121,7 +122,34 @@ export const CreateBooking: React.FC = () => {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Customer Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Customer (Optional)</label>
+                <select
+                  aria-label="Select existing customer"
+                  className="w-full border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500"
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (!id) {
+                      setValue('customerName', '');
+                      setValue('customerPhone', '');
+                      return;
+                    }
+                    const c = customers.find(cu => cu.id === id);
+                    if (c) {
+                      setValue('customerName', c.name, { shouldValidate: true });
+                      setValue('customerPhone', c.phone, { shouldValidate: true });
+                      // store raw id in a hidden uncontrolled input for now
+                      (document.getElementById('selectedCustomerId') as HTMLInputElement).value = id;
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">-- New / Manual --</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
+                </select>
+                <input id="selectedCustomerId" name="customerId" type="hidden" />
+              </div>
               <Input
                 {...register('customerName')}
                 label="Customer Name"

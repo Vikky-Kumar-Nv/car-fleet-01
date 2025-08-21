@@ -2,7 +2,7 @@
 // // src/validation/index.ts
 // import { z } from 'zod';
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.paymentSchema = exports.updateCompanySchema = exports.companySchema = exports.updateVehicleSchema = exports.vehicleSchema = exports.advanceSchema = exports.updateDriverSchema = exports.driverSchema = exports.statusSchema = exports.expenseSchema = exports.updateBookingSchema = exports.bookingSchema = exports.updateUserSchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.paymentSchema = exports.updateCompanySchema = exports.companySchema = exports.updateVehicleServicingSchema = exports.vehicleServicingSchema = exports.updateVehicleCategorySchema = exports.vehicleCategorySchema = exports.updateVehicleSchema = exports.vehicleSchema = exports.advanceSchema = exports.updateDriverSchema = exports.driverSchema = exports.statusSchema = exports.expenseSchema = exports.updateCustomerSchema = exports.customerSchema = exports.updateBookingSchema = exports.bookingSchema = exports.updateUserSchema = exports.loginSchema = exports.registerSchema = void 0;
 // export const registerSchema = z.object({
 //   email: z.string().email(),
 //   password: z.string().min(6),
@@ -105,6 +105,7 @@ exports.loginSchema = zod_1.z.object({
 });
 exports.updateUserSchema = exports.registerSchema.partial();
 exports.bookingSchema = zod_1.z.object({
+    customerId: zod_1.z.string().optional(),
     customerName: zod_1.z.string().min(1, 'Customer name required'),
     customerPhone: zod_1.z.string().min(10, 'Invalid phone'),
     bookingSource: zod_1.z.enum(['company', 'travel-agency', 'individual']),
@@ -123,6 +124,13 @@ exports.bookingSchema = zod_1.z.object({
 exports.updateBookingSchema = exports.bookingSchema.partial().extend({
     billed: zod_1.z.boolean().optional(),
 });
+exports.customerSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1),
+    phone: zod_1.z.string().min(10),
+    email: zod_1.z.string().email().optional(),
+    address: zod_1.z.string().optional(),
+});
+exports.updateCustomerSchema = exports.customerSchema.partial();
 exports.expenseSchema = zod_1.z.object({
     type: zod_1.z.enum(['fuel', 'toll', 'parking', 'other']),
     amount: zod_1.z.number().min(0),
@@ -150,18 +158,79 @@ exports.advanceSchema = zod_1.z.object({
 });
 exports.vehicleSchema = zod_1.z.object({
     registrationNumber: zod_1.z.string().min(1),
-    category: zod_1.z.enum(['SUV', 'sedan', 'bus', 'mini-bus']),
+    // Accept either a free-form legacy category string or a managed categoryId (one must be provided)
+    category: zod_1.z.string().min(1).optional(),
+    categoryId: zod_1.z.string().optional(),
     owner: zod_1.z.enum(['owned', 'rented']),
     insuranceExpiry: zod_1.z.string().datetime(),
     fitnessExpiry: zod_1.z.string().datetime(),
     permitExpiry: zod_1.z.string().datetime(),
     pollutionExpiry: zod_1.z.string().datetime(),
-});
+}).refine(d => !!d.category || !!d.categoryId, { message: 'category or categoryId is required', path: ['category'] });
 exports.updateVehicleSchema = exports.vehicleSchema.partial().extend({
     status: zod_1.z.enum(['active', 'maintenance', 'inactive']).optional(),
     mileageTrips: zod_1.z.number().optional(),
     mileageKm: zod_1.z.number().optional(),
 });
+// Vehicle Category
+exports.vehicleCategorySchema = zod_1.z.object({
+    name: zod_1.z.string().min(1),
+    description: zod_1.z.string().optional(),
+});
+exports.updateVehicleCategorySchema = exports.vehicleCategorySchema.partial();
+// Vehicle Servicing validation (allows partial updates of arrays of records)
+const dateString = zod_1.z.string().datetime().optional();
+const oilChangeItem = zod_1.z.object({
+    _id: zod_1.z.string().optional(),
+    date: zod_1.z.string().datetime().optional(),
+    price: zod_1.z.number().min(0),
+    kilometers: zod_1.z.number().min(0),
+});
+const partReplacementItem = zod_1.z.object({
+    _id: zod_1.z.string().optional(),
+    date: zod_1.z.string().datetime().optional(),
+    part: zod_1.z.string().min(1),
+    price: zod_1.z.number().min(0),
+});
+const tyreItem = zod_1.z.object({
+    _id: zod_1.z.string().optional(),
+    date: zod_1.z.string().datetime().optional(),
+    details: zod_1.z.string().min(1),
+    price: zod_1.z.number().min(0),
+});
+const installmentItem = zod_1.z.object({
+    _id: zod_1.z.string().optional(),
+    date: zod_1.z.string().datetime().optional(),
+    description: zod_1.z.string().min(1),
+    amount: zod_1.z.number().min(0),
+});
+const insuranceItem = zod_1.z.object({
+    _id: zod_1.z.string().optional(),
+    date: zod_1.z.string().datetime().optional(),
+    provider: zod_1.z.string().optional(),
+    policyNumber: zod_1.z.string().optional(),
+    cost: zod_1.z.number().min(0),
+    validFrom: zod_1.z.string().datetime().optional(),
+    validTo: zod_1.z.string().datetime().optional(),
+});
+const legalPaperItem = zod_1.z.object({
+    _id: zod_1.z.string().optional(),
+    date: zod_1.z.string().datetime().optional(),
+    type: zod_1.z.string().min(1),
+    description: zod_1.z.string().optional(),
+    cost: zod_1.z.number().min(0),
+    expiryDate: zod_1.z.string().datetime().optional(),
+});
+exports.vehicleServicingSchema = zod_1.z.object({
+    vehicleId: zod_1.z.string().min(1),
+    oilChanges: zod_1.z.array(oilChangeItem).optional(),
+    partsReplacements: zod_1.z.array(partReplacementItem).optional(),
+    tyres: zod_1.z.array(tyreItem).optional(),
+    installments: zod_1.z.array(installmentItem).optional(),
+    insurances: zod_1.z.array(insuranceItem).optional(),
+    legalPapers: zod_1.z.array(legalPaperItem).optional(),
+});
+exports.updateVehicleServicingSchema = exports.vehicleServicingSchema.partial();
 exports.companySchema = zod_1.z.object({
     name: zod_1.z.string().min(1),
     gst: zod_1.z.string().min(15),

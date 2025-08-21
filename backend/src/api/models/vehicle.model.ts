@@ -4,7 +4,8 @@ import { IVehicle } from '../types';
 
 const vehicleSchema = new Schema<IVehicle>({
   registrationNumber: { type: String, required: true, unique: true, index: true },
-  category: { type: String, required: true },
+  category: { type: String, required: false }, // optional if categoryId provided
+  categoryId: { type: Schema.Types.ObjectId, ref: 'VehicleCategory', required: false, index: true },
   owner: { type: String, required: true },
   insuranceExpiry: { type: Date, required: true, index: true },
   fitnessExpiry: { type: Date, required: true, index: true },

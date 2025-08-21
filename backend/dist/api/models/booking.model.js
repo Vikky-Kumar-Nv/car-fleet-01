@@ -21,6 +21,7 @@ const dutySlipSchema = new mongoose_1.Schema({
     description: { type: String },
 });
 const bookingSchema = new mongoose_1.Schema({
+    customerId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Customer' },
     customerName: { type: String, required: true },
     customerPhone: { type: String, required: true },
     bookingSource: { type: String, required: true, enum: ['company', 'travel-agency', 'individual'] },

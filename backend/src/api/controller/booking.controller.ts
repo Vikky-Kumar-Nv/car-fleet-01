@@ -8,6 +8,7 @@ export const createBooking = async (req: Request, res: Response) => {
   const data = bookingSchema.parse(req.body);
   const bookingData = {
     ...data,
+  customerId: data.customerId ? new Types.ObjectId(data.customerId) : undefined,
     companyId: data.companyId ? new Types.ObjectId(data.companyId) : undefined,
     vehicleId: data.vehicleId ? new Types.ObjectId(data.vehicleId) : undefined,
     driverId: data.driverId ? new Types.ObjectId(data.driverId) : undefined,
@@ -41,6 +42,7 @@ export const updateBooking = async (req: Request, res: Response) => {
   if (updateData.companyId) updateData.companyId = new Types.ObjectId(updateData.companyId);
   if (updateData.vehicleId) updateData.vehicleId = new Types.ObjectId(updateData.vehicleId);
   if (updateData.driverId) updateData.driverId = new Types.ObjectId(updateData.driverId);
+  if (updateData.customerId) updateData.customerId = new Types.ObjectId(updateData.customerId);
   
   // Convert date strings to Date objects
   if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
