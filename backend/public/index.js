@@ -37,6 +37,7 @@ else {
     const app = (0, express_1.default)();
     app.use((0, helmet_1.default)());
     // Broaden CORS in development to allow Vite dev server (5173) while keeping configured frontend URL
+    app.get('/', (req, res) => res.send('server is fine'));
     app.use((0, cors_1.default)({
         origin: (origin, callback) => {
             const allowed = [config_1.config.frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];

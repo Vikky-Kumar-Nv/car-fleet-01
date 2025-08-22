@@ -25,6 +25,8 @@ if (cluster.isMaster) {
 
   app.use(helmet());
   // Broaden CORS in development to allow Vite dev server (5173) while keeping configured frontend URL
+
+  app.get('/', (req, res) => res.send('server is fine'));
   app.use(cors({
     origin: (origin, callback) => {
       const allowed = [config.frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
@@ -45,7 +47,7 @@ if (cluster.isMaster) {
     console.log('Mongo connected');
     await seedUsers();
   });
-
+  
   app.use('/api', apiRouter);
 
   app.use(errorHandler);
