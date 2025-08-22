@@ -1,6 +1,4 @@
 // src/index.ts
-import cluster from 'cluster';
-import os from 'os';
 import express from 'express';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
@@ -9,48 +7,62 @@ import { apiLimiter, errorHandler } from './api/middleware';
 import { apiRouter } from './api/routes';
 import { config } from './config';
 import { seedUsers } from './seeds/user.seed';
-import fs from 'fs';
 
-if (!fs.existsSync(config.uploadDir)) fs.mkdirSync(config.uploadDir);
+const app = express();
 
-const numCPUs = os.cpus().length;
+// Middleware
+app.use(helmet());
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowed = [config.frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
+    if (!origin || allowed.includes(origin)) return callback(null, true);
+    console.warn('CORS blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+app.use(express.json());
+app.use(apiLimiter);
 
-if (cluster.isMaster) {
-  for (let i = 0; i < numCPUs; i++) {
-    cluster.fork();
-  }
-  cluster.on('exit', () => cluster.fork());
-} else {
-  const app = express();
+// Health check
+app.get('/', (req, res) => res.json({ message: 'Backend API is running on Vercel!' }));
 
-  app.use(helmet());
-  // Broaden CORS in development to allow Vite dev server (5173) while keeping configured frontend URL
+// Serve uploaded files
+app.use('/uploads', express.static(config.uploadDir));
 
-  app.get('/', (req, res) => res.send('server is fine'));
-  app.use(cors({
-    origin: (origin, callback) => {
-      const allowed = [config.frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
-      if (!origin || allowed.includes(origin)) return callback(null, true);
-      // In production you may want to reject; for now just log and reject
-      console.warn('CORS blocked origin:', origin);
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-  }));
-  app.use(express.json());
-  app.use(apiLimiter);
+// MongoDB connection with caching for serverless
+let isConnected = false;
 
-  // Serve uploaded files
-  app.use('/uploads', express.static(config.uploadDir));
-
-  mongoose.connect(config.mongoURI).then(async () => {
-    console.log('Mongo connected');
-    await seedUsers();
-  });
+const connectDB = async () => {
+  if (isConnected) return;
   
-  app.use('/api', apiRouter);
+  try {
+    await mongoose.connect(config.mongoURI);
+    isConnected = true;
+    console.log('MongoDB connected');
+    await seedUsers();
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+  }
+};
 
-  app.use(errorHandler);
+// Connect to DB before handling requests
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
-  app.listen(config.port, () => console.log(`Worker on port ${config.port}`));
+// API routes
+app.use('/api', apiRouter);
+
+// Error handler
+app.use(errorHandler);
+
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  const port = config.port || 3000;
+  app.listen(port, () => console.log(`Server running on port ${port}`));
 }
+
+// Export for Vercel
+export default app;
