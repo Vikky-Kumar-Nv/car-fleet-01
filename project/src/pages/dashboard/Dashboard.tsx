@@ -5,13 +5,24 @@ import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Icon } from '../../components/ui/Icon';
 import { format, isBefore, addDays, parseISO } from 'date-fns';
+import type { Booking, Driver, Vehicle, Company } from '../../types';
 
 export const Dashboard: React.FC = () => {
   const { user, hasRole } = useAuth();
-  const { bookings, drivers, vehicles, companies } = useApp();
+  const { bookings, drivers, vehicles, companies, customers } = useApp();
+  const [currentDay, setCurrentDay] = React.useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
+
+  // Tick current day periodically so sections auto-refresh across midnight
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      setCurrentDay(prev => (prev !== today ? today : prev));
+    }, 60 * 1000); // check every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // If current user is a driver, resolve driver entity (match by name for demo)
-  const currentDriver = user?.role === 'driver' ? drivers.find(d => d.name === user.name) : undefined;
+  const currentDriver = user?.role === 'driver' ? drivers.find((d: Driver) => d.name === user.name) : undefined;
 
   // Helper to decide if a booking belongs to current user (if driver)
   const bookingBelongsToCurrentDriver = (driverId?: string) => {
@@ -20,18 +31,25 @@ export const Dashboard: React.FC = () => {
   };
 
   // Calculate metrics
-  const todayBookings = bookings.filter(booking => {
+  const todayBookings = bookings.filter((booking: Booking) => {
     const bookingDate = parseISO(booking.startDate);
-    const today = new Date();
-    return format(bookingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd') && bookingBelongsToCurrentDriver(booking.driverId);
+    return format(bookingDate, 'yyyy-MM-dd') === currentDay && bookingBelongsToCurrentDriver(booking.driverId);
   });
 
-  const ongoingTrips = bookings.filter(booking => booking.status === 'ongoing' && bookingBelongsToCurrentDriver(booking.driverId));
-  const completedToday = bookings.filter(booking => 
+  const ongoingTrips = bookings.filter((booking: Booking) => booking.status === 'ongoing' && bookingBelongsToCurrentDriver(booking.driverId));
+  const completedToday = bookings.filter((booking: Booking) => 
     booking.status === 'completed' && 
-    format(parseISO(booking.startDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') &&
+  format(parseISO(booking.startDate), 'yyyy-MM-dd') === currentDay &&
     bookingBelongsToCurrentDriver(booking.driverId)
   );
+
+  const upcomingTrips = bookings
+    .filter((booking: Booking) => {
+      const bookingDate = parseISO(booking.startDate);
+      const bookingDay = format(bookingDate, 'yyyy-MM-dd');
+      return bookingDay > currentDay && bookingBelongsToCurrentDriver(booking.driverId);
+    })
+    .sort((a: Booking, b: Booking) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   // Calculate expiry alerts
   const getExpiryAlerts = () => {
@@ -39,8 +57,8 @@ export const Dashboard: React.FC = () => {
     const thirtyDaysFromNow = addDays(new Date(), 30);
 
     // Check driver documents (only current driver if role is driver)
-    const driverList = currentDriver ? [currentDriver] : drivers;
-    driverList.forEach(driver => {
+  const driverList: Driver[] = currentDriver ? [currentDriver] : drivers;
+  driverList.forEach((driver: Driver) => {
       const licenseExpiry = parseISO(driver.licenseExpiry);
       const policeExpiry = parseISO(driver.policeVerificationExpiry);
 
@@ -63,8 +81,8 @@ export const Dashboard: React.FC = () => {
 
     // Check vehicle documents
   // Vehicles: for driver role we only show vehicles that appear in their trips today / ongoing
-  const relevantVehicleIds = currentDriver ? Array.from(new Set(bookings.filter(b => b.driverId === currentDriver.id).map(b => b.vehicleId).filter(Boolean))) : vehicles.map(v => v.id);
-  vehicles.filter(v => relevantVehicleIds.includes(v.id)).forEach(vehicle => {
+  const relevantVehicleIds = currentDriver ? Array.from(new Set(bookings.filter((b: Booking) => b.driverId === currentDriver.id).map((b: Booking) => b.vehicleId).filter(Boolean))) : vehicles.map((v: Vehicle) => v.id);
+  vehicles.filter((v: Vehicle) => relevantVehicleIds.includes(v.id)).forEach((vehicle: Vehicle) => {
       const insurance = parseISO(vehicle.insuranceExpiry);
       const fitness = parseISO(vehicle.fitnessExpiry);
       const permit = parseISO(vehicle.permitExpiry);
@@ -109,11 +127,11 @@ export const Dashboard: React.FC = () => {
   const expiryAlerts = getExpiryAlerts();
 
   // Calculate financial metrics
-  const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
-  const totalOutstanding = companies.reduce((sum, company) => sum + company.outstandingAmount, 0);
+  const totalRevenue = bookings.reduce((sum: number, booking: Booking) => sum + booking.totalAmount, 0);
+  const totalOutstanding = companies.reduce((sum: number, company: Company) => sum + company.outstandingAmount, 0);
   const unbilledAmount = bookings
-    .filter(booking => !booking.billed && booking.status === 'completed')
-    .reduce((sum, booking) => sum + booking.balance, 0);
+  .filter((booking: Booking) => !booking.billed && booking.status === 'completed')
+  .reduce((sum: number, booking: Booking) => sum + booking.balance, 0);
 
   return (
     <div className="space-y-6">
@@ -177,6 +195,45 @@ export const Dashboard: React.FC = () => {
         </Card>
       </div>
 
+      {/* Extra Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Icon name="car" className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Vehicles</p>
+                <p className="text-2xl font-bold text-gray-900">{vehicles.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Icon name="user" className="h-8 w-8 text-purple-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Drivers</p>
+                <p className="text-2xl font-bold text-gray-900">{drivers.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <Icon name="building" className="h-8 w-8 text-emerald-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Total Customers</p>
+                <p className="text-2xl font-bold text-gray-900">{(customers?.length) ?? 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Today's Trips */}
         <Card>
@@ -188,7 +245,7 @@ export const Dashboard: React.FC = () => {
               {todayBookings.length === 0 ? (
                 <p className="text-gray-500">No trips scheduled for today</p>
               ) : (
-                todayBookings.map((booking) => (
+                todayBookings.map((booking: Booking) => (
                   <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{booking.customerName}</p>
@@ -230,6 +287,39 @@ export const Dashboard: React.FC = () => {
                         {format(parseISO(alert.expiry), 'MMM d, yyyy')}
                       </p>
                     </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Upcoming Trips */}
+      <div className="grid grid-cols-1 gap-6">
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-medium text-gray-900">Upcoming Trips</h3>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+              {upcomingTrips.length === 0 ? (
+                <p className="text-gray-500">No upcoming trips</p>
+              ) : (
+                upcomingTrips.map((booking: Booking) => (
+                  <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{booking.customerName}</p>
+                      <p className="text-sm text-gray-500">
+                        {booking.pickupLocation} → {booking.dropLocation}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {format(parseISO(booking.startDate), 'PPP p')}
+                      </p>
+                    </div>
+                    <Badge variant={booking.status}>
+                      {booking.status}
+                    </Badge>
                   </div>
                 ))
               )}
@@ -293,14 +383,14 @@ export const Dashboard: React.FC = () => {
                     <Icon name="car" className="h-5 w-5 text-gray-400 mr-2" />
                     <span className="text-sm text-gray-600">Active Vehicles</span>
                   </div>
-                  <span className="font-medium">{vehicles.filter(v => v.status === 'active').length}</span>
+                  <span className="font-medium">{vehicles.filter((v: Vehicle) => v.status === 'active').length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Icon name="user" className="h-5 w-5 text-gray-400 mr-2" />
                     <span className="text-sm text-gray-600">Active Drivers</span>
                   </div>
-                  <span className="font-medium">{drivers.filter(d => d.status === 'active').length}</span>
+                  <span className="font-medium">{drivers.filter((d: Driver) => d.status === 'active').length}</span>
                 </div>
               </div>
             </CardContent>

@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useApp } from '../../context/AppContext';
+import { vehicleCategoryAPI, VehicleCategoryDTO } from '../../services/api';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -13,7 +14,7 @@ import { Icon } from '../../components/ui/Icon';
 
 const vehicleSchema = z.object({
   registrationNumber: z.string().min(1, 'Registration number is required'),
-  category: z.enum(['SUV', 'sedan', 'bus', 'mini-bus']),
+  categoryId: z.string().min(1, 'Category is required'),
   owner: z.enum(['owned', 'rented']),
   insuranceExpiry: z.string().min(1, 'Insurance expiry date is required'),
   fitnessExpiry: z.string().min(1, 'Fitness expiry date is required'),
@@ -26,6 +27,10 @@ type VehicleFormData = z.infer<typeof vehicleSchema>;
 export const CreateVehicle: React.FC = () => {
   const navigate = useNavigate();
   const { addVehicle } = useApp();
+  const [vehicleCategories, setVehicleCategories] = React.useState<VehicleCategoryDTO[]>([]);
+  React.useEffect(() => { vehicleCategoryAPI.list().then(setVehicleCategories).catch(()=>setVehicleCategories([])); }, []);
+  const [photoFile, setPhotoFile] = React.useState<File | null>(null);
+  const [documentFile, setDocumentFile] = React.useState<File | null>(null);
 
   const {
     register,
@@ -37,12 +42,20 @@ export const CreateVehicle: React.FC = () => {
 
   const onSubmit = async (data: VehicleFormData) => {
     try {
+      const name = vehicleCategories.find(c => c.id === data.categoryId)?.name || '';
       const vehicleData = {
-        ...data,
+        registrationNumber: data.registrationNumber,
+        categoryId: data.categoryId,
+        category: name,
+        owner: data.owner,
+        insuranceExpiry: data.insuranceExpiry,
+        fitnessExpiry: data.fitnessExpiry,
+        permitExpiry: data.permitExpiry,
+        pollutionExpiry: data.pollutionExpiry,
         status: 'active' as const,
       };
 
-  await addVehicle(vehicleData);
+  await addVehicle(vehicleData, { photoFile: photoFile || undefined, documentFile: documentFile || undefined });
   toast.success('Vehicle created successfully!');
   navigate('/vehicles');
   } catch {
@@ -79,16 +92,11 @@ export const CreateVehicle: React.FC = () => {
               />
 
               <Select
-                {...register('category')}
+                {...register('categoryId')}
                 label="Vehicle Category"
-                error={errors.category?.message}
+                error={errors.categoryId?.message}
                 placeholder="Select category"
-                options={[
-                  { value: 'sedan', label: 'Sedan' },
-                  { value: 'SUV', label: 'SUV' },
-                  { value: 'bus', label: 'Bus' },
-                  { value: 'mini-bus', label: 'Mini Bus' }
-                ]}
+                options={vehicleCategories.map(c => ({ value: c.id, label: c.name }))}
               />
 
               <Select
@@ -97,7 +105,7 @@ export const CreateVehicle: React.FC = () => {
                 error={errors.owner?.message}
                 placeholder="Select ownership"
                 options={[
-                  { value: 'owned', label: 'Company Owned' },
+                  { value: 'owned', label: 'Owned' },
                   { value: 'rented', label: 'Rented' }
                 ]}
               />
@@ -137,6 +145,18 @@ export const CreateVehicle: React.FC = () => {
               </div>
             </div>
 
+            {/* Uploads */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Input type="file" label="Vehicle Image" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                {photoFile && <p className="mt-1 text-xs text-gray-500">Selected: {photoFile.name}</p>}
+              </div>
+              <div>
+                <Input type="file" label="Vehicle Document" accept="image/*,.pdf" onChange={(e) => setDocumentFile(e.target.files?.[0] || null)} />
+                {documentFile && <p className="mt-1 text-xs text-gray-500">Selected: {documentFile.name}</p>}
+              </div>
+            </div>
+
             <div className="flex justify-end space-x-4">
               <Button
                 type="button"
@@ -145,10 +165,7 @@ export const CreateVehicle: React.FC = () => {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                loading={isSubmitting}
-              >
+              <Button type="submit" loading={isSubmitting} onClick={() => { /* ensure files passed in submit */ }}>
                 Create Vehicle
               </Button>
             </div>

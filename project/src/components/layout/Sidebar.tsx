@@ -12,6 +12,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const { user, logout, hasRole } = useAuth();
   const location = useLocation();
+  const [reportsOpen, setReportsOpen] = React.useState<boolean>(location.pathname.startsWith('/reports'));
 
   interface NavItem { name: string; href: string; icon: IconName; roles: UserRole[] }
   const navigationItems: NavItem[] = [
@@ -58,11 +59,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       roles: ['admin', 'accountant']
     },
     {
-      name: 'Reports',
-      href: '/reports',
-  icon: 'file',
-      roles: ['admin', 'accountant']
+      name: 'Fuel',
+      href: '/fuel',
+      icon: 'wallet',
+      roles: ['admin','accountant','dispatcher']
     },
+  // Reports handled separately as a collapsible group below
     {
       name: 'Account',
       href: '/account',
@@ -130,6 +132,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 </Link>
               );
             })}
+
+            {/* Reports group */}
+            {hasRole(['admin','accountant']) && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setReportsOpen(o => !o)}
+                  className={`w-full flex items-center justify-between px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                    location.pathname.startsWith('/reports') ? 'bg-gray-900 text-white border-r-2 border-amber-500' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`}
+                >
+                  <span className="inline-flex items-center">
+                    <Icon name="file" className={`mr-3 h-6 w-6 ${location.pathname.startsWith('/reports') ? 'text-amber-500' : 'text-gray-400'}`} />
+                    Reports
+                  </span>
+                  <Icon name={reportsOpen ? 'chevronDown' : 'chevronRight'} className="h-4 w-4" />
+                </button>
+                {reportsOpen && (
+                  <div className="mt-1 ml-9 space-y-1" role="group" aria-label="Reports submenu">
+                    <Link to="/reports/driver" className={`block px-2 py-2 text-sm rounded-md ${location.pathname.startsWith('/reports/driver') ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                      onClick={() => { if (window.innerWidth < 768) onToggle(); }}>
+                      Driver Report
+                    </Link>
+                    <Link to="/reports/booking" className={`block px-2 py-2 text-sm rounded-md ${location.pathname.startsWith('/reports/booking') ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                      onClick={() => { if (window.innerWidth < 768) onToggle(); }}>
+                      Booking Report
+                    </Link>
+                    <Link to="/reports/fuel" className={`block px-2 py-2 text-sm rounded-md ${location.pathname.startsWith('/reports/fuel') ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                      onClick={() => { if (window.innerWidth < 768) onToggle(); }}>
+                      Fuel Report
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </nav>
 

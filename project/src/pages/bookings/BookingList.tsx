@@ -49,6 +49,15 @@ export const BookingList: React.FC = () => {
     return vehicle?.registrationNumber || 'Unknown Vehicle';
   };
 
+  // Friendly labels for journey type
+  const journeyLabels: Record<Booking['journeyType'], string> = {
+    'outstation-one-way': 'Outstation One Way',
+    'outstation': 'Outstation',
+    'local-outstation': 'Local + Outstation',
+    'local': 'Local',
+    'transfer': 'Transfer',
+  };
+
   const columns = [
     {
       key: 'id' as keyof Booking,
@@ -78,6 +87,11 @@ export const BookingList: React.FC = () => {
           <div className="text-xs text-gray-500">{format(parseISO(booking.startDate), 'h:mm a')}</div>
         </div>
       )
+    },
+    {
+      key: 'journeyType' as keyof Booking,
+      header: 'Journey',
+      render: (booking: Booking) => journeyLabels[booking.journeyType] || booking.journeyType
     },
     {
       key: 'driverId' as keyof Booking,
@@ -149,7 +163,7 @@ export const BookingList: React.FC = () => {
         searchPlaceholder="Search bookings..."
         onRowClick={(booking) => navigate(`/bookings/${booking.id}`)}
         actions={hasRole(['admin', 'dispatcher', 'driver']) ? actions : undefined}
-        sortableColumns={['customerName','startDate','totalAmount','status']}
+  sortableColumns={['customerName','startDate','journeyType','totalAmount','status']}
         defaultSortKey={'startDate'}
         defaultSortDirection="desc"
         filtersArea={(
@@ -161,6 +175,8 @@ export const BookingList: React.FC = () => {
                 <option value="booked">Booked</option>
                 <option value="ongoing">Ongoing</option>
                 <option value="completed">Completed</option>
+    <option value="yet-to-start">Yet to Start</option>
+    <option value="canceled">Canceled</option>
               </select>
             </div>
             <div>

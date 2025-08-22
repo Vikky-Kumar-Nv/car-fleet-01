@@ -12,6 +12,8 @@ const vehicleSchema = new Schema<IVehicle>({
   permitExpiry: { type: Date, required: true, index: true },
   pollutionExpiry: { type: Date, required: true, index: true },
   status: { type: String, required: true, index: true },
+  photo: { type: String },
+  document: { type: String },
   mileageTrips: { type: Number },
   mileageKm: { type: Number },
   createdAt: { type: Date, default: Date.now },

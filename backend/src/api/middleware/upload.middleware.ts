@@ -8,4 +8,9 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
 });
 
-export const upload = multer({ storage }).array('files');
+export const upload = multer({ storage }).fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'licenseDocument', maxCount: 1 },
+  { name: 'policeVerificationDocument', maxCount: 1 },
+  { name: 'document', maxCount: 1 },
+]);

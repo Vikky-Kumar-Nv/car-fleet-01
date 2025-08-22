@@ -24,9 +24,22 @@ if (cluster.isMaster) {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: config.frontendUrl }));
+  // Broaden CORS in development to allow Vite dev server (5173) while keeping configured frontend URL
+  app.use(cors({
+    origin: (origin, callback) => {
+      const allowed = [config.frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
+      if (!origin || allowed.includes(origin)) return callback(null, true);
+      // In production you may want to reject; for now just log and reject
+      console.warn('CORS blocked origin:', origin);
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  }));
   app.use(express.json());
   app.use(apiLimiter);
+
+  // Serve uploaded files
+  app.use('/uploads', express.static(config.uploadDir));
 
   mongoose.connect(config.mongoURI).then(async () => {
     console.log('Mongo connected');

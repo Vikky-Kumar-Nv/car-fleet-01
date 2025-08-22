@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { customerAPI } from '../../services/api';
+import { customerAPI, companyAPI } from '../../services/api';
 import { Customer } from '../../types';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -12,22 +12,28 @@ export const CustomerDetails: React.FC = () => {
   const navigate = useNavigate();
   const { customers, deleteCustomer } = useApp();
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     const existing = customers.find(c => c.id === id);
-    if (existing) {
-      setCustomer(existing);
-      return;
-    }
+    if (existing) setCustomer(existing);
     setLoading(true);
     customerAPI.get(id)
       .then(c => setCustomer(c as Customer))
       .catch(err => { console.error(err); setError('Failed to load customer'); })
       .finally(() => setLoading(false));
   }, [id, customers]);
+
+  useEffect(()=>{
+    if(customer?.companyId){
+      companyAPI.get(customer.companyId).then(c=> setCompanyName(c.name)).catch(()=> setCompanyName(null));
+    } else {
+      setCompanyName(null);
+    }
+  },[customer?.companyId]);
 
   const handleDelete = async () => {
     if (!customer) return;
@@ -76,6 +82,16 @@ export const CustomerDetails: React.FC = () => {
                 <p className="text-gray-500">Address</p>
                 <p className="font-medium text-gray-900">{customer.address || '-'}</p>
               </div>
+              <div>
+                <p className="text-gray-500">Type</p>
+                <p className="font-medium text-gray-900">{customer.companyId ? 'Company' : 'Random'}</p>
+              </div>
+              {customer.companyId && (
+                <div>
+                  <p className="text-gray-500">Company</p>
+                  <p className="font-medium text-gray-900">{companyName || customer.companyId}</p>
+                </div>
+              )}
               <div>
                 <p className="text-gray-500">Created</p>
                 <p className="font-medium text-gray-900">{new Date(customer.createdAt).toLocaleString()}</p>

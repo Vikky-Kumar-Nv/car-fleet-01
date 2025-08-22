@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Icon } from '../../components/ui/Icon';
+import { Driver } from '../../types';
 
 const driverSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -20,35 +21,80 @@ const driverSchema = z.object({
   licenseExpiry: z.string().min(1, 'License expiry date is required'),
   policeVerificationExpiry: z.string().min(1, 'Police verification expiry is required'),
   paymentMode: z.enum(['per-trip', 'daily', 'monthly', 'fuel-basis']),
-  salary: z.number().min(0, 'Salary must be positive'),
+  dateOfJoining: z.string().min(1, 'Date of joining required'),
+  status: z.enum(['active','inactive']).default('active'),
+  referenceNote: z.string().optional(),
+  // photo & document handled via file inputs separately
 });
 
-type DriverFormData = z.infer<typeof driverSchema>;
+type DriverSchemaFields = z.infer<typeof driverSchema>;
+// Form state extends schema fields with file inputs not part of validation schema
+type DriverFormData = DriverSchemaFields & { photoFile?: FileList; documentFile?: FileList };
 
 export const CreateDriver: React.FC = () => {
   const navigate = useNavigate();
   const { addDriver } = useApp();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<DriverFormData>({
-    resolver: zodResolver(driverSchema),
+  // Create a resolver that ignores the file fields by mapping them out before validation
+  const schemaResolver: Resolver<DriverFormData> = async (values, context, options) => {
+    const { photoFile, documentFile, ...schemaValues } = values;
+    const baseResolver = zodResolver(driverSchema) as Resolver<DriverSchemaFields>;
+    const result = await baseResolver(schemaValues as DriverSchemaFields, context, options);
+    return {
+      values: result.values ? { ...(result.values as DriverSchemaFields), photoFile, documentFile } as DriverFormData : {} as DriverFormData,
+      // result.errors type compatible with our form; cast to expected generic mapping
+  errors: result.errors as unknown as Record<string, unknown>
+    };
+  };
+
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<DriverFormData>({
+    resolver: schemaResolver,
     defaultValues: {
-      salary: 0,
+      status: 'active',
     }
   });
 
   const onSubmit = async (data: DriverFormData) => {
     try {
-      const driverData = {
-        ...data,
-        advances: [],
-        status: 'active' as const,
+      const { photoFile, documentFile, ...formValues } = data;
+      const payload = { ...formValues };
+      // Build named FormData manually because backend expects named fields, not generic array
+      const fd = new FormData();
+      Object.entries(payload).forEach(([k,v])=>{ if(v!==undefined && v!==null) fd.append(k, String(v)); });
+      if (photoFile && photoFile[0]) fd.append('photo', photoFile[0]);
+      if (documentFile && documentFile[0]) fd.append('licenseDocument', documentFile[0]);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/drivers`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')||''}` },
+        body: fd,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const created = await res.json();
+      const normalized = {
+        id: created._id || created.id || '',
+        name: created.name as string,
+        phone: created.phone as string,
+        licenseNumber: created.licenseNumber as string,
+        aadhaar: created.aadhaar as string,
+        photo: created.photo as string | undefined,
+        vehicleType: created.vehicleType as 'owned' | 'rented',
+        licenseExpiry: new Date(created.licenseExpiry).toISOString(),
+        policeVerificationExpiry: new Date(created.policeVerificationExpiry).toISOString(),
+        licenseDocument: created.licenseDocument as string | undefined,
+        policeVerificationDocument: created.policeVerificationDocument as string | undefined,
+        paymentMode: created.paymentMode as 'per-trip' | 'daily' | 'monthly' | 'fuel-basis',
+        salary: created.salary as number | undefined,
+        dateOfJoining: created.dateOfJoining ? new Date(created.dateOfJoining).toISOString() : new Date().toISOString(),
+        referenceNote: created.referenceNote as string | undefined,
+        document: created.document as string | undefined,
+        advances: (created.advances || []) as Driver['advances'],
+        status: created.status as 'active' | 'inactive',
+        createdAt: new Date(created.createdAt || Date.now()).toISOString(),
       };
-
-      addDriver(driverData);
+      // insert into context without id/createdAt per addDriver signature
+  // Exclude id & createdAt for context add (API layer will manage persisted entity fetch later)
+  const { id: _omitId, createdAt: _omitCreatedAt, ...driverForContext } = normalized; // eslint-disable-line @typescript-eslint/no-unused-vars
+  addDriver(driverForContext);
       toast.success('Driver created successfully!');
       navigate('/drivers');
   } catch {
@@ -135,27 +181,49 @@ export const CreateDriver: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Input
-                {...register('salary', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                label="Salary/Rate Amount"
-                error={errors.salary?.message}
-                placeholder="0.00"
-              />
-
-              <Input
                 {...register('licenseExpiry')}
                 type="date"
                 label="License Expiry Date"
                 error={errors.licenseExpiry?.message}
               />
-
               <Input
                 {...register('policeVerificationExpiry')}
                 type="date"
                 label="Police Verification Expiry"
                 error={errors.policeVerificationExpiry?.message}
               />
+              <Input
+                {...register('dateOfJoining')}
+                type="date"
+                label="Date of Joining"
+                error={errors.dateOfJoining?.message}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Select
+                {...register('status')}
+                label="Status"
+                error={errors.status?.message}
+                options={[
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' }
+                ]}
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Driver Photo</label>
+                <input type="file" accept="image/*" {...register('photoFile')} className="block w-full text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Document (PDF/Image)</label>
+                <input type="file" accept="image/*,.pdf" {...register('documentFile')} className="block w-full text-sm" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="referenceNote">Reference Note</label>
+              <textarea id="referenceNote" {...register('referenceNote')} className="w-full border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500" rows={3} placeholder="Any additional notes or references" />
+              {errors.referenceNote && <p className="text-sm text-red-600 mt-1">{errors.referenceNote.message}</p>}
             </div>
 
             <div className="flex justify-end space-x-4">

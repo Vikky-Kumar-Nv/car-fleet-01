@@ -135,7 +135,8 @@ export const bookingSchema = z.object({
   companyId: z.string().optional(),
   pickupLocation: z.string().min(1, 'Pickup required'),
   dropLocation: z.string().min(1, 'Drop required'),
-  journeyType: z.enum(['outstation', 'local', 'one-way', 'round-trip']),
+  journeyType: z.enum(['outstation-one-way','outstation','local-outstation','local','transfer']),
+  cityOfWork: z.string().optional(),
   startDate: z.string().datetime('Invalid date'),
   endDate: z.string().datetime('Invalid date'),
   vehicleId: z.string().optional(),
@@ -154,6 +155,7 @@ export const customerSchema = z.object({
   phone: z.string().min(10),
   email: z.string().email().optional(),
   address: z.string().optional(),
+  companyId: z.string().optional(),
 });
 
 export const updateCustomerSchema = customerSchema.partial();
@@ -164,8 +166,15 @@ export const expenseSchema = z.object({
   description: z.string().min(1),
 });
 
+export const bookingPaymentSchema = z.object({
+  amount: z.number().min(0),
+  comments: z.string().optional(),
+  collectedBy: z.string().optional(),
+  paidOn: z.string().datetime(),
+});
+
 export const statusSchema = z.object({
-  status: z.enum(['booked', 'ongoing', 'completed']),
+  status: z.enum(['booked', 'ongoing', 'completed', 'yet-to-start', 'canceled']),
   changedBy: z.string().min(1),
 });
 
@@ -178,7 +187,11 @@ export const driverSchema = z.object({
   licenseExpiry: z.string().datetime(),
   policeVerificationExpiry: z.string().datetime(),
   paymentMode: z.enum(['per-trip', 'daily', 'monthly', 'fuel-basis']),
-  salary: z.number().min(0),
+  // salary optional now
+  salary: z.number().min(0).optional(),
+  dateOfJoining: z.string().datetime(),
+  referenceNote: z.string().optional(),
+  status: z.enum(['active','inactive']).optional(),
 });
 
 export const updateDriverSchema = driverSchema.partial();
@@ -198,6 +211,8 @@ export const vehicleSchema = z.object({
   fitnessExpiry: z.string().datetime(),
   permitExpiry: z.string().datetime(),
   pollutionExpiry: z.string().datetime(),
+  photo: z.string().optional(),
+  document: z.string().optional(),
 }).refine(d => !!d.category || !!d.categoryId, { message: 'category or categoryId is required', path: ['category'] });
 
 export const updateVehicleSchema = vehicleSchema.partial().extend({
@@ -291,4 +306,18 @@ export const paymentSchema = z.object({
   type: z.enum(['received', 'paid']),
   description: z.string().optional(),
   relatedAdvanceId: z.string().uuid().optional(),
+});
+
+// Fuel entry creation validation
+export const fuelEntrySchema = z.object({
+  vehicleId: z.string().min(1),
+  bookingId: z.string().min(1),
+  addedByType: z.enum(['self','driver']),
+  fuelFillDate: z.string().datetime(),
+  totalTripKm: z.number().min(0),
+  vehicleFuelAverage: z.number().min(0),
+  fuelQuantity: z.number().min(0),
+  fuelRate: z.number().min(0),
+  comment: z.string().optional(),
+  includeInFinance: z.boolean().optional(),
 });

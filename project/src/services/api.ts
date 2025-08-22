@@ -38,7 +38,7 @@ api.interceptors.response.use(
       toast.error('Session expired. Please login again.');
     } else if (error.response?.status === 429) {
       toast.error('Too many requests. Please try again later.');
-    } else if (error.response?.status >= 500) {
+  } else if ((error.response?.status ?? 0) >= 500) {
       toast.error('Server error. Please try again later.');
     }
     return Promise.reject(error);
@@ -111,13 +111,13 @@ interface RawPayment { _id?: string; id?: string; amount: number; type: string; 
 interface CompanyOverviewResponse { company: RawCompany; metrics: { bookings: number; revenue: number; expenses: number; completed: number; outstanding: number }; bookings: RawBooking[]; payments: RawPayment[] }
 
 // Vehicle raw types
-interface RawVehicle { _id?: string; id?: string; registrationNumber: string; category: 'SUV'|'sedan'|'bus'|'mini-bus'; owner: 'owned'|'rented'; insuranceExpiry: string|Date; fitnessExpiry: string|Date; permitExpiry: string|Date; pollutionExpiry: string|Date; status: 'active'|'maintenance'|'inactive'; mileageTrips?: number; mileageKm?: number; createdAt?: string|Date; }
-export interface VehicleDTO { id: string; registrationNumber: string; category: 'SUV'|'sedan'|'bus'|'mini-bus'; owner: 'owned'|'rented'; insuranceExpiry: string; fitnessExpiry: string; permitExpiry: string; pollutionExpiry: string; status: 'active'|'maintenance'|'inactive'; mileageTrips?: number; mileageKm?: number; createdAt: string; }
+interface RawVehicle { _id?: string; id?: string; registrationNumber: string; category?: string; categoryId?: string | { _id?: string; name?: string }; owner: 'owned'|'rented'; insuranceExpiry: string|Date; fitnessExpiry: string|Date; permitExpiry: string|Date; pollutionExpiry: string|Date; photo?: string; document?: string; status: 'active'|'maintenance'|'inactive'; mileageTrips?: number; mileageKm?: number; createdAt?: string|Date; }
+export interface VehicleDTO { id: string; registrationNumber: string; category: string; categoryId?: string; owner: 'owned'|'rented'; insuranceExpiry: string; fitnessExpiry: string; permitExpiry: string; pollutionExpiry: string; photo?: string; document?: string; status: 'active'|'maintenance'|'inactive'; mileageTrips?: number; mileageKm?: number; createdAt: string; }
 
 // Driver raw & DTO types
 interface RawAdvance { amount: number; date: string|Date; settled?: boolean; description?: string; id?: string; _id?: string; }
-interface RawDriver { _id?: string; id?: string; name: string; phone: string; licenseNumber: string; aadhaar: string; vehicleType: 'owned'|'rented'; licenseExpiry: string|Date; policeVerificationExpiry: string|Date; paymentMode: 'per-trip'|'daily'|'monthly'|'fuel-basis'; salary: number; advances?: RawAdvance[]; status: 'active'|'inactive'; createdAt?: string|Date; }
-export interface DriverDTO { id: string; name: string; phone: string; licenseNumber: string; aadhaar: string; vehicleType: 'owned'|'rented'; licenseExpiry: string; policeVerificationExpiry: string; paymentMode: 'per-trip'|'daily'|'monthly'|'fuel-basis'; salary: number; advances: { id: string; amount: number; date: string; settled: boolean; description: string }[]; status: 'active'|'inactive'; createdAt: string; }
+interface RawDriver { _id?: string; id?: string; name: string; phone: string; licenseNumber: string; aadhaar: string; vehicleType: 'owned'|'rented'; licenseExpiry: string|Date; policeVerificationExpiry: string|Date; paymentMode: 'per-trip'|'daily'|'monthly'|'fuel-basis'; salary?: number; dateOfJoining: string|Date; referenceNote?: string; document?: string; photo?: string; advances?: RawAdvance[]; status: 'active'|'inactive'; createdAt?: string|Date; }
+export interface DriverDTO { id: string; name: string; phone: string; licenseNumber: string; aadhaar: string; vehicleType: 'owned'|'rented'; licenseExpiry: string; policeVerificationExpiry: string; paymentMode: 'per-trip'|'daily'|'monthly'|'fuel-basis'; salary?: number; dateOfJoining: string; referenceNote?: string; document?: string; photo?: string; advances: { id: string; amount: number; date: string; settled: boolean; description: string }[]; status: 'active'|'inactive'; createdAt: string; }
 
 export interface ApiError {
   message: string;
@@ -221,12 +221,15 @@ export const vehicleAPI = {
     return {
       id: raw.id || raw._id || '',
       registrationNumber: raw.registrationNumber,
-      category: raw.category,
+  category: raw.category || (typeof raw.categoryId === 'object' ? (raw.categoryId.name || '') : ''),
+  categoryId: typeof raw.categoryId === 'object' ? raw.categoryId._id : raw.categoryId,
       owner: raw.owner,
       insuranceExpiry: typeof raw.insuranceExpiry === 'string' ? raw.insuranceExpiry : new Date(raw.insuranceExpiry).toISOString(),
       fitnessExpiry: typeof raw.fitnessExpiry === 'string' ? raw.fitnessExpiry : new Date(raw.fitnessExpiry).toISOString(),
       permitExpiry: typeof raw.permitExpiry === 'string' ? raw.permitExpiry : new Date(raw.permitExpiry).toISOString(),
       pollutionExpiry: typeof raw.pollutionExpiry === 'string' ? raw.pollutionExpiry : new Date(raw.pollutionExpiry).toISOString(),
+  photo: raw.photo,
+  document: raw.document,
       status: raw.status,
       mileageTrips: raw.mileageTrips,
       mileageKm: raw.mileageKm,
@@ -243,16 +246,76 @@ export const vehicleAPI = {
     const res = await api.get(`/vehicles/${id}`);
     return vehicleAPI._normalize(res.data as RawVehicle);
   },
-  create: async (payload: Omit<VehicleDTO,'id'|'createdAt'|'status'> & { status?: VehicleDTO['status'] }): Promise<VehicleDTO> => {
-  const res = await api.post('/vehicles', normalizeVehicleDates(payload));
+  create: async (payload: Omit<VehicleDTO,'id'|'createdAt'|'status'|'category'> & { status?: VehicleDTO['status']; category?: string; categoryId?: string; photoFile?: File; documentFile?: File }): Promise<VehicleDTO> => {
+    // If files present, send multipart
+    if (payload.photoFile || payload.documentFile) {
+      const fd = new FormData();
+      const body = normalizeVehicleDates(payload);
+      Object.entries(body).forEach(([k,v]) => {
+        if (k === 'photoFile' || k === 'documentFile') return;
+        if (v == null) return;
+        fd.append(k, String(v));
+      });
+      if (payload.photoFile) fd.append('photo', payload.photoFile);
+      if (payload.documentFile) fd.append('document', payload.documentFile);
+      const res = await api.post('/vehicles', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      return vehicleAPI._normalize(res.data as RawVehicle);
+    }
+    const res = await api.post('/vehicles', normalizeVehicleDates(payload));
     return vehicleAPI._normalize(res.data as RawVehicle);
   },
   update: async (id: string, updates: Partial<VehicleDTO>): Promise<VehicleDTO> => {
+    // Optional multipart when files provided
+    const maybeFileUpdates = updates as Partial<VehicleDTO> & { photoFile?: File; documentFile?: File };
+    if (maybeFileUpdates.photoFile || maybeFileUpdates.documentFile) {
+      const fd = new FormData();
+      const body = normalizeVehicleDates(maybeFileUpdates);
+      Object.entries(body).forEach(([k,v]) => {
+        if (k === 'photoFile' || k === 'documentFile') return;
+        if (v == null) return;
+        fd.append(k, String(v));
+      });
+      if (maybeFileUpdates.photoFile) fd.append('photo', maybeFileUpdates.photoFile);
+      if (maybeFileUpdates.documentFile) fd.append('document', maybeFileUpdates.documentFile);
+      const res = await api.put(`/vehicles/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      return vehicleAPI._normalize(res.data as RawVehicle);
+    }
   const res = await api.put(`/vehicles/${id}`, normalizeVehicleDates(updates));
     return vehicleAPI._normalize(res.data as RawVehicle);
   },
   delete: async (id: string): Promise<void> => {
     await api.delete(`/vehicles/${id}`);
+  }
+};
+
+// Vehicle Category API
+interface RawVehicleCategory { _id?: string; id?: string; name: string; description?: string; createdAt?: string | Date }
+export interface VehicleCategoryDTO { id: string; name: string; description?: string; createdAt: string }
+export const vehicleCategoryAPI = {
+  _normalize(raw: RawVehicleCategory): VehicleCategoryDTO {
+    return {
+      id: raw.id || raw._id || '',
+      name: raw.name,
+      description: raw.description,
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
+    };
+  },
+  list: async (): Promise<VehicleCategoryDTO[]> => {
+    const res = await api.get('/vehicle-categories');
+    const data = res.data as { categories: RawVehicleCategory[]; total: number } | RawVehicleCategory[];
+    const arr = Array.isArray(data) ? data : data.categories;
+    return arr.map(vehicleCategoryAPI._normalize);
+  },
+  create: async (payload: { name: string; description?: string }): Promise<VehicleCategoryDTO> => {
+    const res = await api.post('/vehicle-categories', payload);
+    return vehicleCategoryAPI._normalize(res.data as RawVehicleCategory);
+  },
+  update: async (id: string, updates: Partial<{ name: string; description?: string }>): Promise<VehicleCategoryDTO> => {
+    const res = await api.put(`/vehicle-categories/${id}`, updates);
+    return vehicleCategoryAPI._normalize(res.data as RawVehicleCategory);
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/vehicle-categories/${id}`);
   }
 };
 
@@ -268,8 +331,12 @@ export const driverAPI = {
       vehicleType: raw.vehicleType,
       licenseExpiry: typeof raw.licenseExpiry === 'string' ? raw.licenseExpiry : new Date(raw.licenseExpiry).toISOString(),
       policeVerificationExpiry: typeof raw.policeVerificationExpiry === 'string' ? raw.policeVerificationExpiry : new Date(raw.policeVerificationExpiry).toISOString(),
-      paymentMode: raw.paymentMode,
-      salary: raw.salary,
+  paymentMode: raw.paymentMode,
+  salary: raw.salary,
+  dateOfJoining: raw.dateOfJoining ? (typeof raw.dateOfJoining === 'string' ? raw.dateOfJoining : new Date(raw.dateOfJoining).toISOString()) : (typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString()),
+  referenceNote: raw.referenceNote,
+  document: raw.document,
+  photo: raw.photo,
       advances: (raw.advances || []).map(a => ({
   id: a.id || a._id || '',
         amount: a.amount,
@@ -296,8 +363,37 @@ export const driverAPI = {
     const res = await api.post('/drivers', body);
     return driverAPI._normalize(res.data as RawDriver);
   },
+  createMultipart: async (payload: Record<string, unknown>, files: File[]) => {
+    const fd = new FormData();
+    Object.entries(payload).forEach(([k,v]) => {
+      if (v == null) return;
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        // normalize date-only to ISO
+        fd.append(k, new Date(v + 'T00:00:00.000Z').toISOString());
+      } else {
+        fd.append(k, String(v));
+      }
+    });
+    files.forEach(f => fd.append('files', f));
+    const res = await api.post('/drivers', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return driverAPI._normalize(res.data as RawDriver);
+  },
   update: async (id: string, updates: Partial<DriverDTO>): Promise<DriverDTO> => {
     const res = await api.put(`/drivers/${id}`, normalizeDriverDates(updates));
+    return driverAPI._normalize(res.data as RawDriver);
+  },
+  updateMultipart: async (id: string, updates: Record<string, unknown>, files: File[]) => {
+    const fd = new FormData();
+    Object.entries(updates).forEach(([k,v]) => {
+      if (v == null) return;
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        fd.append(k, new Date(v + 'T00:00:00.000Z').toISOString());
+      } else {
+        fd.append(k, String(v));
+      }
+    });
+    files.forEach(f => fd.append('files', f));
+    const res = await api.put(`/drivers/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
     return driverAPI._normalize(res.data as RawDriver);
   },
   delete: async (id: string): Promise<void> => {
@@ -345,16 +441,58 @@ export const driverReportAPI = {
   }
 };
 
+// Fuel API
+interface RawFuelEntry { _id?: string; id?: string; vehicleId: string | { _id?: string; registrationNumber?: string }; bookingId: string | { _id?: string; pickupLocation?: string; dropLocation?: string }; addedByType: 'self'|'driver'; fuelFillDate: string|Date; totalTripKm: number; vehicleFuelAverage: number; fuelQuantity: number; fuelRate: number; totalAmount: number; comment?: string; includeInFinance: boolean; createdAt?: string|Date; updatedAt?: string|Date; }
+export interface FuelEntryDTO { id: string; vehicleId: string; vehicleLabel?: string; bookingId: string; bookingLabel?: string; addedByType: 'self'|'driver'; fuelFillDate: string; totalTripKm: number; vehicleFuelAverage: number; fuelQuantity: number; fuelRate: number; totalAmount: number; comment?: string; includeInFinance: boolean; createdAt: string; updatedAt: string; }
+export const fuelAPI = {
+  _normalize(raw: RawFuelEntry): FuelEntryDTO {
+    return {
+      id: raw.id || raw._id || '',
+  vehicleId: typeof raw.vehicleId === 'object' ? (raw.vehicleId._id || '') : raw.vehicleId,
+  vehicleLabel: typeof raw.vehicleId === 'object' ? raw.vehicleId.registrationNumber : undefined,
+  bookingId: typeof raw.bookingId === 'object' ? (raw.bookingId._id || '') : raw.bookingId,
+  bookingLabel: typeof raw.bookingId === 'object' ? `${raw.bookingId.pickupLocation || ''} -> ${raw.bookingId.dropLocation || ''}` : undefined,
+      addedByType: raw.addedByType,
+      fuelFillDate: typeof raw.fuelFillDate === 'string' ? raw.fuelFillDate : new Date(raw.fuelFillDate).toISOString(),
+      totalTripKm: raw.totalTripKm,
+      vehicleFuelAverage: raw.vehicleFuelAverage,
+      fuelQuantity: raw.fuelQuantity,
+      fuelRate: raw.fuelRate,
+      totalAmount: raw.totalAmount,
+      comment: raw.comment,
+      includeInFinance: raw.includeInFinance,
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
+      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(raw.updatedAt || Date.now()).toISOString(),
+    };
+  },
+  list: async (): Promise<FuelEntryDTO[]> => {
+    const res = await api.get('/fuel');
+    const data = res.data as RawFuelEntry[];
+    return data.map(fuelAPI._normalize);
+  },
+  create: async (payload: Omit<FuelEntryDTO,'id'|'totalAmount'|'createdAt'|'updatedAt'>): Promise<FuelEntryDTO> => {
+    const res = await api.post('/fuel', payload);
+    return fuelAPI._normalize(res.data as RawFuelEntry);
+  },
+  update: async (id: string, updates: Partial<FuelEntryDTO>): Promise<FuelEntryDTO> => {
+    const res = await api.put(`/fuel/${id}`, updates);
+    return fuelAPI._normalize(res.data as RawFuelEntry);
+  },
+  delete: async (id: string): Promise<void> => { await api.delete(`/fuel/${id}`); },
+  get: async (id: string): Promise<FuelEntryDTO> => { const res = await api.get(`/fuel/${id}`); return fuelAPI._normalize(res.data as RawFuelEntry); }
+};
+
 // Booking API
-interface RawStatusChange { status: 'booked'|'ongoing'|'completed'; timestamp: string|Date; changedBy: string; _id?: string; id?: string; }
+interface RawStatusChange { status: 'booked'|'ongoing'|'completed'|'yet-to-start'|'canceled'; timestamp: string|Date; changedBy: string; _id?: string; id?: string; }
 interface RawExpense { id?: string; _id?: string; type: 'fuel'|'toll'|'parking'|'other'; amount: number; description: string; }
 interface RawDutySlip { id?: string; _id?: string; path?: string; uploadedAt?: string|Date; uploadedBy?: string; description?: string; name?: string; size?: number; data?: string; type?: string; }
+interface RawBookingPayment { id?: string; _id?: string; amount: number; comments?: string; collectedBy?: string; paidOn: string|Date; }
 type MaybePopulated<T> = T | { _id?: string; id?: string } | undefined;
-interface RawCustomer { _id?: string; id?: string; name: string; phone: string; email?: string; address?: string; createdAt?: string|Date; }
-export interface CustomerDTO { id: string; name: string; phone: string; email?: string; address?: string; createdAt: string; }
+interface RawCustomer { _id?: string; id?: string; name: string; phone: string; email?: string; address?: string; companyId?: string; createdAt?: string|Date; }
+export interface CustomerDTO { id: string; name: string; phone: string; email?: string; address?: string; companyId?: string; createdAt: string; }
 
-interface RawFullBooking { _id?: string; id?: string; customerId?: MaybePopulated<string>; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: MaybePopulated<string>; pickupLocation: string; dropLocation: string; journeyType: 'outstation'|'local'|'one-way'|'round-trip'; startDate: string|Date; endDate: string|Date; vehicleId?: MaybePopulated<string>; driverId?: MaybePopulated<string>; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'; expenses: RawExpense[]; billed: boolean; statusHistory: RawStatusChange[]; dutySlips?: RawDutySlip[]; createdAt?: string|Date; }
-export interface BookingDTO { id: string; customerId?: string; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: string; pickupLocation: string; dropLocation: string; journeyType: 'outstation'|'local'|'one-way'|'round-trip'; startDate: string; endDate: string; vehicleId?: string; driverId?: string; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'; expenses: { id: string; type: RawExpense['type']; amount: number; description: string }[]; billed: boolean; statusHistory: { id: string; status: BookingDTO['status']; timestamp: string; changedBy: string }[]; dutySlips?: RawDutySlip[]; createdAt: string; }
+interface RawFullBooking { _id?: string; id?: string; customerId?: MaybePopulated<string>; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: MaybePopulated<string>; pickupLocation: string; dropLocation: string; journeyType: 'outstation-one-way'|'outstation'|'local-outstation'|'local'|'transfer'; cityOfWork?: string; startDate: string|Date; endDate: string|Date; vehicleId?: MaybePopulated<string>; driverId?: MaybePopulated<string>; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'|'yet-to-start'|'canceled'; expenses: RawExpense[]; payments?: RawBookingPayment[]; billed: boolean; statusHistory: RawStatusChange[]; dutySlips?: RawDutySlip[]; createdAt?: string|Date; }
+export interface BookingDTO { id: string; customerId?: string; customerName: string; customerPhone: string; bookingSource: 'company'|'travel-agency'|'individual'; companyId?: string; pickupLocation: string; dropLocation: string; journeyType: 'outstation-one-way'|'outstation'|'local-outstation'|'local'|'transfer'; cityOfWork?: string; startDate: string; endDate: string; vehicleId?: string; driverId?: string; tariffRate: number; totalAmount: number; advanceReceived: number; balance: number; status: 'booked'|'ongoing'|'completed'|'yet-to-start'|'canceled'; expenses: { id: string; type: RawExpense['type']; amount: number; description: string }[]; payments?: { id: string; amount: number; comments?: string; collectedBy?: string; paidOn: string }[]; billed: boolean; statusHistory: { id: string; status: BookingDTO['status']; timestamp: string; changedBy: string }[]; dutySlips?: RawDutySlip[]; createdAt: string; }
 
 export const customerAPI = {
   _normalize(raw: RawCustomer): CustomerDTO {
@@ -364,7 +502,8 @@ export const customerAPI = {
       phone: raw.phone,
       email: raw.email,
       address: raw.address,
-      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
+  createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
+  companyId: raw.companyId,
     };
   },
   list: async (): Promise<CustomerDTO[]> => {
@@ -401,7 +540,8 @@ export const bookingAPI = {
   companyId: (typeof raw.companyId === 'object' && raw.companyId?._id ? (raw.companyId._id || raw.companyId.id) : raw.companyId) as string | undefined,
       pickupLocation: raw.pickupLocation,
       dropLocation: raw.dropLocation,
-      journeyType: raw.journeyType,
+  journeyType: raw.journeyType,
+  cityOfWork: raw.cityOfWork,
       startDate: typeof raw.startDate === 'string' ? raw.startDate : new Date(raw.startDate).toISOString(),
       endDate: typeof raw.endDate === 'string' ? raw.endDate : new Date(raw.endDate).toISOString(),
   vehicleId: (typeof raw.vehicleId === 'object' && raw.vehicleId?._id ? (raw.vehicleId._id || raw.vehicleId.id) : raw.vehicleId) as string | undefined,
@@ -411,7 +551,8 @@ export const bookingAPI = {
       advanceReceived: raw.advanceReceived,
       balance: raw.balance,
       status: raw.status,
-      expenses: (raw.expenses||[]).map(e=>({ id: e.id || e._id || '', type: e.type, amount: e.amount, description: e.description })),
+  expenses: (raw.expenses||[]).map(e=>({ id: e.id || e._id || '', type: e.type, amount: e.amount, description: e.description })),
+  payments: (raw.payments||[]).map(p=>({ id: p.id || p._id || '', amount: p.amount, comments: p.comments, collectedBy: p.collectedBy, paidOn: typeof p.paidOn === 'string' ? p.paidOn : new Date(p.paidOn).toISOString() })),
       billed: raw.billed,
       statusHistory: (raw.statusHistory||[]).map(s=>({ id: s.id || s._id || '', status: s.status, timestamp: typeof s.timestamp==='string'?s.timestamp:new Date(s.timestamp).toISOString(), changedBy: s.changedBy })),
       dutySlips: raw.dutySlips,
@@ -439,6 +580,15 @@ export const bookingAPI = {
   },
   addExpense: async (id: string, expense: { type: RawExpense['type']; amount: number; description: string }): Promise<BookingDTO> => {
     const res = await api.post(`/bookings/${id}/expenses`, expense);
+    return bookingAPI._normalize(res.data as RawFullBooking);
+  },
+  addPayment: async (id: string, payment: { amount: number; comments?: string; collectedBy?: string; paidOn: string }): Promise<BookingDTO> => {
+    const body = { ...payment };
+    // Ensure backend receives ISO datetime; convert YYYY-MM-DD to T00:00:00.000Z
+    if (/^\d{4}-\d{2}-\d{2}$/.test(body.paidOn)) {
+      body.paidOn = new Date(body.paidOn + 'T00:00:00.000Z').toISOString();
+    }
+    const res = await api.post(`/bookings/${id}/payments`, body);
     return bookingAPI._normalize(res.data as RawFullBooking);
   },
   updateStatus: async (id: string, status: BookingDTO['status'], changedBy: string): Promise<BookingDTO> => {
@@ -479,7 +629,7 @@ function normalizeBookingDates<T extends Record<string, unknown>>(obj: T): T {
 
 function normalizeDriverDates<T extends Record<string, unknown>>(obj: T): T {
   const copy: Record<string, unknown> = { ...obj };
-  ['licenseExpiry','policeVerificationExpiry'].forEach(key => {
+  ['licenseExpiry','policeVerificationExpiry','dateOfJoining'].forEach(key => {
     const value = copy[key];
     if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       copy[key] = new Date(value + 'T00:00:00.000Z').toISOString();
@@ -537,3 +687,23 @@ export const vehicleServicingAPI = {
 };
 
 export default api;
+// City API
+export interface CityDTO { id: string; name: string; createdAt: string }
+const pickId = (obj: { id?: string; _id?: string } | unknown): string => {
+  const o = obj as { id?: string; _id?: string };
+  return o?.id || o?._id || '';
+};
+
+export const cityAPI = {
+  list: async (): Promise<CityDTO[]> => {
+    const res = await api.get('/cities');
+    const data = res.data as { id?: string; _id?: string; name: string; createdAt?: string|Date }[];
+    return data.map(c => ({ id: pickId(c), name: c.name, createdAt: typeof c.createdAt==='string'?c.createdAt:new Date(c.createdAt||Date.now()).toISOString() }));
+  },
+  create: async (name: string): Promise<CityDTO> => {
+    const res = await api.post('/cities', { name });
+    const c = res.data as { id?: string; _id?: string; name: string; createdAt?: string|Date };
+    return { id: pickId(c), name: c.name, createdAt: typeof c.createdAt==='string'?c.createdAt:new Date(c.createdAt||Date.now()).toISOString() };
+  },
+  delete: async (id: string): Promise<void> => { await api.delete(`/cities/${id}`); },
+};

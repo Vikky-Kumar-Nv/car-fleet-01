@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
 import * as service from '../services';
 import { customerSchema, updateCustomerSchema } from '../validation';
 
 export const createCustomer = async (req: Request, res: Response) => {
   const data = customerSchema.parse(req.body);
-  const customer = await service.createCustomer(data);
+  const customer = await service.createCustomer(data as any); // service handles ObjectId conversion
   res.status(201).json(customer);
 };
 
@@ -24,7 +23,7 @@ export const getCustomerById = async (req: Request, res: Response) => {
 
 export const updateCustomer = async (req: Request, res: Response) => {
   const data = updateCustomerSchema.parse(req.body);
-  const customer = await service.updateCustomer(req.params.id, data);
+  const customer = await service.updateCustomer(req.params.id, data as any);
   if (!customer) return res.status(404).json({ message: 'Customer not found' });
   res.json(customer);
 };

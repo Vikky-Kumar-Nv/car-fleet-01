@@ -20,10 +20,13 @@ export interface Driver {
   vehicleType: 'owned' | 'rented';
   licenseExpiry: string;
   policeVerificationExpiry: string;
-  licenseDocument?: UploadedFile;
-  policeVerificationDocument?: UploadedFile;
+  licenseDocument?: string | UploadedFile; // Cloudinary URL or full uploaded file object
+  policeVerificationDocument?: string | UploadedFile; // Cloudinary URL or uploaded file object
   paymentMode: 'per-trip' | 'daily' | 'monthly' | 'fuel-basis';
-  salary: number;
+  salary?: number;
+  dateOfJoining: string;
+  referenceNote?: string;
+  document?: string | UploadedFile; // allow simple path string
   advances: Advance[];
   status: 'active' | 'inactive';
   createdAt: string;
@@ -32,15 +35,26 @@ export interface Driver {
 export interface Vehicle {
   id: string;
   registrationNumber: string;
-  category: 'SUV' | 'sedan' | 'bus' | 'mini-bus';
+  // Category is now dynamic, managed in DB; keep legacy values but allow any string
+  category: string;
+  categoryId?: string;
   owner: 'owned' | 'rented';
   insuranceExpiry: string;
   fitnessExpiry: string;
   permitExpiry: string;
   pollutionExpiry: string;
+  photo?: string;
+  document?: string;
   status: 'active' | 'maintenance' | 'inactive';
   mileageTrips?: number;
   mileageKm?: number;
+  createdAt: string;
+}
+
+export interface VehicleCategory {
+  id: string;
+  name: string;
+  description?: string;
   createdAt: string;
 }
 
@@ -82,7 +96,8 @@ export interface Booking {
   companyId?: string;
   pickupLocation: string;
   dropLocation: string;
-  journeyType: 'outstation' | 'local' | 'one-way' | 'round-trip';
+  journeyType: 'outstation-one-way' | 'outstation' | 'local-outstation' | 'local' | 'transfer';
+  cityOfWork?: string;
   startDate: string;
   endDate: string;
   vehicleId?: string;
@@ -91,9 +106,10 @@ export interface Booking {
   totalAmount: number;
   advanceReceived: number;
   balance: number;
-  status: 'booked' | 'ongoing' | 'completed';
+  status: 'booked' | 'ongoing' | 'completed' | 'yet-to-start' | 'canceled';
   dutySlips?: UploadedFile[]; // multiple uploads (pdf/images)
   expenses: Expense[];
+  payments?: BookingPayment[];
   billed: boolean;
   createdAt: string;
   statusHistory: StatusChange[];
@@ -105,6 +121,7 @@ export interface Customer {
   phone: string;
   email?: string;
   address?: string;
+  companyId?: string;
   createdAt: string;
 }
 
@@ -114,6 +131,14 @@ export interface Expense {
   amount: number;
   description: string;
   receipt?: string;
+}
+
+export interface BookingPayment {
+  id: string;
+  amount: number;
+  comments?: string;
+  collectedBy?: string;
+  paidOn: string; // ISO date
 }
 
 export interface StatusChange {
@@ -140,6 +165,7 @@ export interface Payment {
   date: string;
   description: string;
   // Optional link if this payment settles a specific driver advance
+  payments?: BookingPayment[];
   relatedAdvanceId?: string;
 }
 

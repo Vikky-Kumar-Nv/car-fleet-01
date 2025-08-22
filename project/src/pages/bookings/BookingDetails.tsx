@@ -24,6 +24,7 @@ export const BookingDetails: React.FC = () => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const booking = bookings.find(b => b.id === id);
 
@@ -55,6 +56,14 @@ export const BookingDetails: React.FC = () => {
     formState: { errors: statusErrors }
   } = useForm<StatusForm>();
 
+  interface PaymentForm { amount: string; comments?: string; collectedBy?: string; paidOn: string }
+  const {
+    register: registerPayment,
+    handleSubmit: handlePaymentSubmit,
+    reset: resetPayment,
+    formState: { errors: paymentErrors }
+  } = useForm<PaymentForm>({ defaultValues: { paidOn: new Date().toISOString().slice(0,10) } });
+
   if (!booking) {
     return (
       <div className="text-center py-12">
@@ -69,21 +78,20 @@ export const BookingDetails: React.FC = () => {
   const driver = booking.driverId ? drivers.find(d => d.id === booking.driverId) : null;
   const vehicle = booking.vehicleId ? vehicles.find(v => v.id === booking.vehicleId) : null;
 
-  const onAddExpense = (data: ExpenseForm) => {
-    const newExpense = {
-      id: Date.now().toString(),
-      type: data.type,
-      amount: parseFloat(data.amount),
-      description: data.description,
-    };
-
-    updateBooking(booking.id, {
-      expenses: [...booking.expenses, newExpense]
-    });
-
-    toast.success('Expense added successfully');
-    setShowExpenseModal(false);
-    resetExpense();
+  const onAddExpense = async (data: ExpenseForm) => {
+    try {
+      const updated = await bookingAPI.addExpense(booking.id, {
+        type: data.type,
+        amount: parseFloat(data.amount),
+        description: data.description,
+      });
+      updateBooking(booking.id, updated as unknown as Partial<Booking>);
+      toast.success('Expense added successfully');
+      setShowExpenseModal(false);
+      resetExpense();
+    } catch {
+      toast.error('Failed to add expense');
+    }
   };
 
   const onUpdateStatus = async (data: StatusForm) => {
@@ -98,6 +106,23 @@ export const BookingDetails: React.FC = () => {
       toast.success(`Booking marked as ${!booking.billed ? 'billed' : 'not billed'}`);
     } catch {
       toast.error('Failed to update billing status');
+    }
+  };
+
+  const onAddPayment = async (data: PaymentForm) => {
+    try {
+      const updated = await bookingAPI.addPayment(booking.id, {
+        amount: parseFloat(data.amount),
+        comments: data.comments,
+        collectedBy: data.collectedBy,
+        paidOn: data.paidOn,
+      });
+      updateBooking(booking.id, updated as unknown as Partial<Booking>);
+      toast.success('Payment recorded');
+      setShowPaymentModal(false);
+      resetPayment();
+  } catch {
+      toast.error('Failed to record payment');
     }
   };
 
@@ -135,6 +160,7 @@ export const BookingDetails: React.FC = () => {
   };
 
   const totalExpenses = booking.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalPayments = (booking.payments || []).reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <div className="space-y-6">
@@ -313,6 +339,40 @@ export const BookingDetails: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Payments */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium text-gray-900">Payments</h3>
+                {hasRole(['admin', 'accountant', 'dispatcher']) && (
+                  <Button size="sm" variant="outline" onClick={() => setShowPaymentModal(true)}>
+                    <Icon name="plus" className="h-4 w-4 mr-1" /> Add Payment
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(!booking.payments || booking.payments.length === 0) ? (
+                <p className="text-gray-500">No payments recorded</p>
+              ) : (
+                <div className="space-y-3">
+                  {booking.payments.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium">₹{p.amount.toLocaleString()}</p>
+                        {p.comments && <p className="text-gray-600 truncate">{p.comments}</p>}
+                      </div>
+                      <div className="text-right text-xs text-gray-500">
+                        {p.collectedBy && <p>Collected by: {p.collectedBy}</p>}
+                        <p>Paid on: {p.paidOn}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Status History */}
           <Card>
             <CardHeader>
@@ -325,7 +385,7 @@ export const BookingDetails: React.FC = () => {
                     <Icon name="clock" className="h-4 w-4 text-gray-400" />
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <Badge variant={history.status} className="text-xs">
+                        <Badge variant={history.status as 'booked'|'ongoing'|'completed'|'yet-to-start'|'canceled'} className="text-xs">
                           {history.status}
                         </Badge>
                         <span className="text-sm text-gray-500">by {history.changedBy}</span>
@@ -356,6 +416,10 @@ export const BookingDetails: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Advance</span>
                 <span className="font-medium">₹{booking.advanceReceived.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Payments</span>
+                <span className="font-medium">₹{totalPayments.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Expenses</span>
@@ -484,14 +548,16 @@ export const BookingDetails: React.FC = () => {
         title="Update Status"
       >
         <form onSubmit={handleStatusSubmit(onUpdateStatus)} className="space-y-4">
-          <Select
+      <Select
             {...registerStatus('status', { required: 'Status is required' })}
             label="New Status"
             error={statusErrors.status?.message as string}
             options={[
               { value: 'booked', label: 'Booked' },
+        { value: 'yet-to-start', label: 'Yet to Start' },
               { value: 'ongoing', label: 'Ongoing' },
-              { value: 'completed', label: 'Completed' }
+        { value: 'completed', label: 'Completed' },
+        { value: 'canceled', label: 'Canceled' }
             ]}
           />
 
@@ -504,6 +570,41 @@ export const BookingDetails: React.FC = () => {
               Cancel
             </Button>
             <Button type="submit">Update Status</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Payment Modal */}
+      <Modal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} title="Add Payment">
+        <form onSubmit={handlePaymentSubmit(onAddPayment)} className="space-y-4">
+          <Input
+            {...registerPayment('amount', { required: 'Amount is required' })}
+            type="number"
+            step="0.01"
+            label="Amount"
+            error={paymentErrors.amount?.message as string}
+            placeholder="0.00"
+          />
+          <Input
+            {...registerPayment('comments')}
+            label="Comments"
+            placeholder="Optional notes"
+          />
+          <Input
+            {...registerPayment('collectedBy')}
+            label="Collected By"
+            placeholder="Staff name"
+          />
+          <Input
+            {...registerPayment('paidOn', { required: 'Paid On is required' })}
+            type="date"
+            label="Paid On"
+            error={paymentErrors.paidOn?.message as string}
+          />
+
+          <div className="flex justify-end space-x-3">
+            <Button type="button" variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+            <Button type="submit">Add Payment</Button>
           </div>
         </form>
       </Modal>

@@ -11,3 +11,5 @@ export * from './customer.service';
 export * from './vehicleCategory.service';
 export * from './vehicleServicing.service';
 export * from './driverReport.service';
+export * from './fuel.service';
+export * from './city.service';

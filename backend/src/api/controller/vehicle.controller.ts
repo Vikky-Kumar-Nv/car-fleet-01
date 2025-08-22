@@ -2,6 +2,8 @@
 import { Request, Response } from 'express';
 import * as service from '../services';
 import { vehicleSchema, updateVehicleSchema } from '../validation';
+import { upload } from '../middleware';
+import { uploadToCloudinary } from '../../config/cloudinary';
 
 export const createVehicle = async (req: Request, res: Response) => {
   const data = vehicleSchema.parse(req.body);
@@ -14,6 +16,20 @@ export const createVehicle = async (req: Request, res: Response) => {
     pollutionExpiry: new Date(data.pollutionExpiry),
     status: 'active' as const,
   };
+  // Upload files to Cloudinary if present
+  const files = (req as any).files as Record<string, Express.Multer.File[]> | undefined;
+  if (files) {
+    const assign = async (field: string, targetField: string) => {
+      const fArr = files[field];
+      if (fArr && fArr[0]) {
+        const uploaded = await uploadToCloudinary(fArr[0].path, 'vehicles');
+        (vehicleData as any)[targetField] = uploaded.url; // secure URL
+        // If you later store publicId, add: (vehicleData as any)[`${targetField}PublicId`] = uploaded.publicId;
+      }
+    };
+    await assign('photo','photo');
+    await assign('document','document');
+  }
   const vehicle = await service.createVehicle(vehicleData);
   res.status(201).json(vehicle);
 };
@@ -42,6 +58,20 @@ export const updateVehicle = async (req: Request, res: Response) => {
   if (updateData.permitExpiry) updateData.permitExpiry = new Date(updateData.permitExpiry);
   if (updateData.pollutionExpiry) updateData.pollutionExpiry = new Date(updateData.pollutionExpiry);
   
+  // Upload files to Cloudinary if present
+  const files = (req as any).files as Record<string, Express.Multer.File[]> | undefined;
+  if (files) {
+    const assign = async (field: string, targetField: string) => {
+      const fArr = files[field];
+      if (fArr && fArr[0]) {
+        const uploaded = await uploadToCloudinary(fArr[0].path, 'vehicles');
+        (updateData as any)[targetField] = uploaded.url;
+        // Optionally persist publicId too
+      }
+    };
+    await assign('photo','photo');
+    await assign('document','document');
+  }
   const vehicle = await service.updateVehicle(req.params.id, updateData);
   if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
   res.json(vehicle);

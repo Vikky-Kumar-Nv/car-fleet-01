@@ -1,9 +1,24 @@
 // src/api/services/customer.service.ts
 import { Customer } from '../models';
 import { ICustomer } from '../types';
+import { Types } from 'mongoose';
 
-export const createCustomer = async (data: Omit<ICustomer, '_id' | 'createdAt'>) => {
-  const customer = new Customer(data);
+interface CreateCustomerInput {
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  companyId?: string; // string form received from API
+}
+
+export const createCustomer = async (data: CreateCustomerInput) => {
+  const customer = new Customer({
+    name: data.name,
+    phone: data.phone,
+    email: data.email,
+    address: data.address,
+    companyId: data.companyId ? new Types.ObjectId(data.companyId) : undefined,
+  });
   await customer.save();
   return customer;
 };
@@ -19,6 +34,12 @@ export const getCustomers = async (page: number, limit: number) => {
 
 export const getCustomerById = async (id: string) => Customer.findById(id);
 
-export const updateCustomer = async (id: string, updates: Partial<ICustomer>) => Customer.findByIdAndUpdate(id, updates, { new: true });
+export const updateCustomer = async (id: string, updates: Partial<ICustomer> & { companyId?: string }) => {
+  const mapped: any = { ...updates };
+  if (mapped.companyId && typeof mapped.companyId === 'string') {
+    mapped.companyId = new Types.ObjectId(mapped.companyId);
+  }
+  return Customer.findByIdAndUpdate(id, mapped, { new: true });
+};
 
 export const deleteCustomer = async (id: string) => Customer.findByIdAndDelete(id);

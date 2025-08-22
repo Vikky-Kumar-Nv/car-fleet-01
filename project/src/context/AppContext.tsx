@@ -24,8 +24,8 @@ interface AppContextType {
   
   // Vehicles
   vehicles: Vehicle[];
-  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'createdAt'>) => void;
-  updateVehicle: (id: string, updates: Partial<Vehicle>) => void;
+  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'createdAt'>, files?: { photoFile?: File; documentFile?: File }) => void;
+  updateVehicle: (id: string, updates: Partial<Vehicle>, files?: { photoFile?: File; documentFile?: File }) => void;
   deleteVehicle: (id: string) => void;
   vehiclesLoading?: boolean;
   
@@ -198,6 +198,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('bolt_vehicles', JSON.stringify(vehicles));
   }, [vehicles]);
 
+
   useEffect(() => {
     localStorage.setItem('bolt_companies', JSON.stringify(companies));
   }, [companies]);
@@ -222,6 +223,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setBookings(prev => [...prev, fallback]);
     }
   };
+
 
   const updateBooking = async (id: string, updates: Partial<Booking>) => {
     // optimistic
@@ -263,7 +265,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Driver functions
   const addDriver = async (driver: Omit<Driver, 'id' | 'createdAt'>) => {
     try {
-  const created = await driverAPI.create(driver as unknown as Omit<Driver,'id'|'createdAt'>);
+  const created = await driverAPI.create({
+    name: driver.name,
+    phone: driver.phone,
+    licenseNumber: driver.licenseNumber,
+    aadhaar: driver.aadhaar,
+    vehicleType: driver.vehicleType,
+    licenseExpiry: driver.licenseExpiry,
+    policeVerificationExpiry: driver.policeVerificationExpiry,
+    paymentMode: driver.paymentMode,
+    salary: driver.salary,
+    dateOfJoining: driver.dateOfJoining,
+    referenceNote: driver.referenceNote,
+    status: driver.status,
+    document: typeof driver.document === 'string' ? driver.document : undefined,
+    photo: driver.photo,
+    advances: []
+  } as unknown as {
+    name: string; phone: string; licenseNumber: string; aadhaar: string; vehicleType: 'owned'|'rented';
+    licenseExpiry: string; policeVerificationExpiry: string; paymentMode: 'per-trip'|'daily'|'monthly'|'fuel-basis';
+    salary?: number; dateOfJoining: string; referenceNote?: string; status?: 'active'|'inactive'; document?: string; photo?: string; advances: [];
+  });
   const newDriver: Driver = { ...(created as Driver) };
       setDrivers(prev => [...prev, newDriver]);
     } catch (err) {
@@ -276,7 +298,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateDriver = async (id: string, updates: Partial<Driver>) => {
     setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     try {
-  const updated = await driverAPI.update(id, updates as Partial<Driver>);
+  const updated = await driverAPI.update(id, ({
+    ...updates,
+    document: typeof updates.document === 'string' ? updates.document : undefined,
+  } as unknown as {
+    name?: string; phone?: string; licenseNumber?: string; aadhaar?: string; vehicleType?: 'owned'|'rented';
+    licenseExpiry?: string; policeVerificationExpiry?: string; paymentMode?: 'per-trip'|'daily'|'monthly'|'fuel-basis';
+    salary?: number; dateOfJoining?: string; referenceNote?: string; status?: 'active'|'inactive'; document?: string; photo?: string;
+  }));
       setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d));
     } catch (err) {
       console.error('Update driver failed', err);
@@ -300,9 +329,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Vehicle functions
-  const addVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt'>) => {
+  const addVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt'>, files?: { photoFile?: File; documentFile?: File }) => {
     try {
-  const created = await vehicleAPI.create(vehicle as unknown as Omit<Vehicle, 'id' | 'createdAt'>);
+      type VehicleCreatePayload = Parameters<typeof vehicleAPI.create>[0];
+      const payload: VehicleCreatePayload = {
+        registrationNumber: vehicle.registrationNumber,
+        categoryId: vehicle.categoryId,
+        category: vehicle.category,
+        owner: vehicle.owner,
+        insuranceExpiry: vehicle.insuranceExpiry,
+        fitnessExpiry: vehicle.fitnessExpiry,
+        permitExpiry: vehicle.permitExpiry,
+        pollutionExpiry: vehicle.pollutionExpiry,
+        status: vehicle.status,
+        ...(files?.photoFile ? { photoFile: files.photoFile } : {}),
+        ...(files?.documentFile ? { documentFile: files.documentFile } : {}),
+      };
+      const created = await vehicleAPI.create(payload);
   const newVehicle: Vehicle = { ...(created as Vehicle) };
       setVehicles(prev => [...prev, newVehicle]);
     } catch (err) {
@@ -313,11 +356,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const updateVehicle = async (id: string, updates: Partial<Vehicle>) => {
+  const updateVehicle = async (id: string, updates: Partial<Vehicle>, files?: { photoFile?: File; documentFile?: File }) => {
     // optimistic update
     setVehicles(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v));
     try {
-  const updated = await vehicleAPI.update(id, updates as Partial<Vehicle>);
+      type VehicleUpdatePayload = Parameters<typeof vehicleAPI.update>[1];
+      const payload: VehicleUpdatePayload = {
+        registrationNumber: updates.registrationNumber,
+        categoryId: updates.categoryId,
+        category: updates.category,
+        owner: updates.owner,
+        insuranceExpiry: updates.insuranceExpiry,
+        fitnessExpiry: updates.fitnessExpiry,
+        permitExpiry: updates.permitExpiry,
+        pollutionExpiry: updates.pollutionExpiry,
+        status: updates.status,
+        mileageTrips: updates.mileageTrips,
+        mileageKm: updates.mileageKm,
+        ...(files?.photoFile ? { photoFile: files.photoFile } : {}),
+        ...(files?.documentFile ? { documentFile: files.documentFile } : {}),
+      } as VehicleUpdatePayload;
+      const updated = await vehicleAPI.update(id, payload);
       setVehicles(prev => prev.map(v => v.id === id ? { ...v, ...updated } : v));
     } catch (err) {
       console.error('Update vehicle failed', err);

@@ -21,13 +21,21 @@ export interface IDriver {
   licenseNumber: string;
   aadhaar: string;
   photo?: string; // file path
+  photoPublicId?: string;
   vehicleType: 'owned' | 'rented';
   licenseExpiry: Date;
   policeVerificationExpiry: Date;
   licenseDocument?: string; // file path
+  licenseDocumentPublicId?: string;
   policeVerificationDocument?: string; // file path
+  policeVerificationDocumentPublicId?: string;
   paymentMode: 'per-trip' | 'daily' | 'monthly' | 'fuel-basis';
-  salary: number;
+  // Salary removed from required create fields; keep optional for backward compatibility / historical data
+  salary?: number;
+  dateOfJoining: Date; // new required field
+  referenceNote?: string;
+  document?: string; // generic uploaded document path (other than license/police verification)
+  documentPublicId?: string;
   advances: IAdvance[];
   status: 'active' | 'inactive';
   createdAt: Date;
@@ -45,6 +53,8 @@ export interface IVehicle {
   permitExpiry: Date;
   pollutionExpiry: Date;
   status: 'active' | 'maintenance' | 'inactive';
+  photo?: string; // vehicle image path
+  document?: string; // RC/permit document path
   mileageTrips?: number;
   mileageKm?: number;
   createdAt: Date;
@@ -176,7 +186,8 @@ export interface IBooking {
   companyId?: Types.ObjectId;
   pickupLocation: string;
   dropLocation: string;
-  journeyType: 'outstation' | 'local' | 'one-way' | 'round-trip';
+  journeyType: 'outstation-one-way' | 'outstation' | 'local-outstation' | 'local' | 'transfer';
+  cityOfWork?: string;
   startDate: Date;
   endDate: Date;
   vehicleId?: Types.ObjectId;
@@ -185,12 +196,20 @@ export interface IBooking {
   totalAmount: number;
   advanceReceived: number;
   balance: number;
-  status: 'booked' | 'ongoing' | 'completed';
+  status: 'booked' | 'ongoing' | 'completed' | 'yet-to-start' | 'canceled';
   dutySlips?: IDutySlip[];
   expenses: IExpense[];
+  payments?: IBookingPayment[];
   billed: boolean;
   createdAt: Date;
   statusHistory: IStatusChange[];
+}
+
+export interface IBookingPayment {
+  amount: number;
+  comments?: string;
+  collectedBy?: string;
+  paidOn: Date;
 }
 
 export interface ICustomer {
@@ -199,6 +218,7 @@ export interface ICustomer {
   phone: string;
   email?: string;
   address?: string;
+  companyId?: Types.ObjectId; // optional association to a company
   createdAt: Date;
 }
 
@@ -214,6 +234,24 @@ export interface IDriverReportEntry {
   salaryRate?: number; // base salary/rate reference at that time
   totalAmount?: number; // computed = (daysWorked*salaryRate) + nightAmount or manual override
   notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Fuel entry
+export interface IFuelEntry {
+  _id: Types.ObjectId;
+  vehicleId: Types.ObjectId;
+  bookingId: Types.ObjectId; // associated trip / booking
+  addedByType: 'self' | 'driver';
+  fuelFillDate: Date;
+  totalTripKm: number; // total km for trip segment
+  vehicleFuelAverage: number; // vehicle average (km per litre)
+  fuelQuantity: number; // litres
+  fuelRate: number; // per litre rate
+  totalAmount: number; // fuelQuantity * fuelRate
+  comment?: string;
+  includeInFinance: boolean; // whether to include in income/expense calculations
   createdAt: Date;
   updatedAt: Date;
 }

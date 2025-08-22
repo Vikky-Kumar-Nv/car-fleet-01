@@ -6,26 +6,34 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { companyAPI } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 
 const customerSchema = z.object({
+  customerType: z.enum(['random','company']),
+  companyId: z.string().optional(),
   name: z.string().min(1, 'Name required'),
   phone: z.string().min(10, 'Phone required'),
   email: z.string().email('Invalid email').optional().or(z.literal('').transform(()=>undefined)),
   address: z.string().optional(),
-});
+}).refine(d => d.customerType === 'random' || (d.customerType === 'company' && !!d.companyId), { message: 'Select company', path: ['companyId'] });
 
 type CustomerForm = z.infer<typeof customerSchema>;
 
 export const CreateCustomer: React.FC = () => {
   const { addCustomer } = useApp();
+  const [companies,setCompanies] = React.useState<{ id:string; label:string }[]>([]);
+  React.useEffect(()=>{ (async()=>{ try { const list = await companyAPI.list(); setCompanies(list.map(c=>({ id:c.id, label:c.name }))); } catch(err){ console.warn('Load companies failed', err); } })(); },[]);
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CustomerForm>({ resolver: zodResolver(customerSchema) });
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<CustomerForm>({ resolver: zodResolver(customerSchema), defaultValues:{ customerType:'random' } });
+  const customerType = watch('customerType');
 
   const onSubmit = async (data: CustomerForm) => {
     try {
-      await addCustomer(data);
+  const { customerType, companyId, ...rest } = data;
+  await addCustomer({ ...rest, companyId: customerType==='company' ? companyId : undefined });
       toast.success('Customer created');
       navigate('/customers');
     } catch (err) {
@@ -47,6 +55,10 @@ export const CreateCustomer: React.FC = () => {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Select label="Customer Type" value={customerType} onChange={e=>{ const val = e.target.value as 'random'|'company'; setValue('customerType', val); if(val==='random') setValue('companyId', undefined); }} options={[{ value:'random', label:'Random' }, { value:'company', label:'Company' }]} />
+              {customerType==='company' && (
+                <Select label="Company" value={watch('companyId')||''} onChange={e=> setValue('companyId', e.target.value)} options={companies.map(c=>({ value:c.id, label:c.label }))} placeholder="Select company" />
+              )}
               <Input {...register('name')} label="Name" error={errors.name?.message} placeholder="Full name" />
               <Input {...register('phone')} label="Phone" error={errors.phone?.message} placeholder="Phone number" />
               <Input {...register('email')} label="Email" error={errors.email?.message} placeholder="email@example.com" />

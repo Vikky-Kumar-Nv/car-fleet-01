@@ -10,6 +10,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Icon } from '../../components/ui/Icon';
+import { Modal } from '../../components/ui/Modal';
+import { cityAPI } from '../../services/api';
 
 const bookingSchema = z.object({
   customerName: z.string().min(1, 'Customer name is required'),
@@ -18,7 +20,8 @@ const bookingSchema = z.object({
   companyId: z.string().optional(),
   pickupLocation: z.string().min(1, 'Pickup location is required'),
   dropLocation: z.string().min(1, 'Drop location is required'),
-  journeyType: z.enum(['outstation', 'local', 'one-way', 'round-trip']),
+  journeyType: z.enum(['outstation-one-way','outstation','local-outstation','local','transfer']),
+  cityOfWork: z.string().optional(),
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
   vehicleId: z.string().optional(),
@@ -33,6 +36,10 @@ type BookingFormData = z.infer<typeof bookingSchema>;
 export const CreateBooking: React.FC = () => {
   const navigate = useNavigate();
   const { addBooking, drivers, vehicles, companies, customers } = useApp();
+  const [cities, setCities] = React.useState<string[]>([]);
+  const [newCity, setNewCity] = React.useState('');
+  const [cityModalOpen, setCityModalOpen] = React.useState(false);
+  const [cityError, setCityError] = React.useState<string | null>(null);
 
   const {
     register,
@@ -46,7 +53,7 @@ export const CreateBooking: React.FC = () => {
       tariffRate: 0,
       totalAmount: 0,
       advanceReceived: 0,
-    }
+  }
   });
 
   const bookingSource = watch('bookingSource');
@@ -63,7 +70,7 @@ export const CreateBooking: React.FC = () => {
       const bookingData = {
         ...data,
         balance: data.totalAmount - data.advanceReceived,
-        status: 'booked' as const,
+  status: 'booked' as const,
         expenses: [],
         billed: false,
         statusHistory: [{
@@ -82,6 +89,21 @@ export const CreateBooking: React.FC = () => {
       toast.error('Failed to create booking');
     }
   };
+
+  // Load cities from API (fallback to localStorage if API fails)
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const list = await cityAPI.list();
+        const names = list.map(c => c.name).sort();
+        setCities(names);
+        localStorage.setItem('bolt_cities', JSON.stringify(names));
+      } catch {
+        const saved = localStorage.getItem('bolt_cities');
+        setCities(saved ? JSON.parse(saved) : []);
+      }
+    })();
+  }, []);
 
   const driverOptions = drivers
     .filter(d => d.status === 'active')
@@ -103,7 +125,7 @@ export const CreateBooking: React.FC = () => {
   }));
 
   return (
-    <div className="space-y-6">
+  <div className="space-y-6">
       <div className="flex items-center space-x-4">
         <Button
           variant="outline"
@@ -115,7 +137,7 @@ export const CreateBooking: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900">Create New Booking</h1>
       </div>
 
-      <Card>
+  <Card>
         <CardHeader>
           <h2 className="text-xl font-semibold text-gray-900">Booking Details</h2>
         </CardHeader>
@@ -139,7 +161,10 @@ export const CreateBooking: React.FC = () => {
                     if (c) {
                       setValue('customerName', c.name, { shouldValidate: true });
                       setValue('customerPhone', c.phone, { shouldValidate: true });
-                      // store raw id in a hidden uncontrolled input for now
+                      if (c.companyId) {
+                        setValue('bookingSource', 'company');
+                        setValue('companyId', c.companyId);
+                      }
                       (document.getElementById('selectedCustomerId') as HTMLInputElement).value = id;
                     }
                   }}
@@ -214,10 +239,11 @@ export const CreateBooking: React.FC = () => {
                 error={errors.journeyType?.message}
                 placeholder="Select journey type"
                 options={[
+                  { value: 'outstation-one-way', label: 'Outstation One Way' },
                   { value: 'outstation', label: 'Outstation' },
+                  { value: 'local-outstation', label: 'Local + Outstation' },
                   { value: 'local', label: 'Local' },
-                  { value: 'one-way', label: 'One Way' },
-                  { value: 'round-trip', label: 'Round Trip' }
+                  { value: 'transfer', label: 'Transfer' },
                 ]}
               />
 
@@ -234,6 +260,23 @@ export const CreateBooking: React.FC = () => {
                 label="End Date & Time"
                 error={errors.endDate?.message}
               />
+            </div>
+
+            {/* City of Work */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2">
+                <Select
+                  {...register('cityOfWork')}
+                  label="City of Work"
+                  placeholder="Select city"
+                  options={[{ value: '', label: 'Select city' }, ...cities.map(c => ({ value: c, label: c }))]}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button type="button" variant="outline" onClick={() => { setCityError(null); setNewCity(''); setCityModalOpen(true); }}>
+                  <Icon name="plus" className="h-4 w-4 mr-2" /> Add City
+                </Button>
+              </div>
             </div>
 
             {/* Vehicle and Driver Assignment */}
@@ -279,7 +322,7 @@ export const CreateBooking: React.FC = () => {
                 {...register('advanceReceived', { valueAsNumber: true })}
                 type="number"
                 step="0.01"
-                label="Advance Received"
+                label="Advance to Driver"
                 error={errors.advanceReceived?.message}
                 placeholder="0.00"
               />
@@ -311,6 +354,65 @@ export const CreateBooking: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+      {/* Add City Modal */}
+      <CreateBookingCityModal
+        isOpen={cityModalOpen}
+        onClose={() => setCityModalOpen(false)}
+        value={newCity}
+        setValue={setNewCity}
+        error={cityError}
+        onAdd={(name) => {
+          const c = name.trim();
+          if (!c) { setCityError('City name is required'); return; }
+          if (cities.includes(c)) { setCityError('City already exists'); return; }
+          (async () => {
+            try {
+              await cityAPI.create(c);
+              const list = await cityAPI.list();
+              const names = list.map(ci => ci.name).sort();
+              localStorage.setItem('bolt_cities', JSON.stringify(names));
+              setCityError(null);
+              setCities(names);
+              setValue('cityOfWork', c, { shouldDirty: true, shouldValidate: true });
+              setNewCity('');
+              setCityModalOpen(false);
+            } catch {
+              // If duplicate or network fail, still ensure it's selected from LS if present
+              const saved = localStorage.getItem('bolt_cities');
+              const names = saved ? JSON.parse(saved) : [];
+              if (!names.includes(c)) names.push(c);
+              localStorage.setItem('bolt_cities', JSON.stringify(names));
+              setCities(names.sort());
+              setValue('cityOfWork', c, { shouldDirty: true, shouldValidate: true });
+              setNewCity('');
+              setCityModalOpen(false);
+            }
+          })();
+        }}
+      />
     </div>
+  );
+};
+
+// Add City Modal (inline usage)
+export const CreateBookingCityModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onAdd: (name: string) => void;
+  error?: string | null;
+  value: string;
+  setValue: (v: string) => void;
+}> = ({ isOpen, onClose, onAdd, error, value, setValue }) => {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Add City" size="sm">
+      <div className="space-y-4">
+        <Input label="City Name" placeholder="e.g., Delhi" value={value} onChange={(e)=>setValue(e.target.value)} />
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => onAdd(value)}>Save</Button>
+        </div>
+      </div>
+    </Modal>
   );
 };

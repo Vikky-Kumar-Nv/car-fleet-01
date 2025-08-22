@@ -11,10 +11,11 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Icon } from '../../components/ui/Icon';
 import { Vehicle } from '../../types';
+import { vehicleCategoryAPI, VehicleCategoryDTO } from '../../services/api';
 
 const editVehicleSchema = z.object({
   registrationNumber: z.string().min(1),
-  category: z.enum(['SUV', 'sedan', 'bus', 'mini-bus']),
+  categoryId: z.string().min(1),
   owner: z.enum(['owned', 'rented']),
   status: z.enum(['active', 'maintenance', 'inactive']),
   insuranceExpiry: z.string().min(1),
@@ -31,13 +32,17 @@ export const EditVehicle: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { vehicles, updateVehicle } = useApp();
+  const [vehicleCategories, setVehicleCategories] = React.useState<VehicleCategoryDTO[]>([]);
+  React.useEffect(() => { vehicleCategoryAPI.list().then(setVehicleCategories).catch(()=>setVehicleCategories([])); }, []);
   const vehicle = vehicles.find(v => v.id === id);
+  const [photoFile, setPhotoFile] = React.useState<File | null>(null);
+  const [documentFile, setDocumentFile] = React.useState<File | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<EditVehicleForm>({
     resolver: zodResolver(editVehicleSchema),
     defaultValues: vehicle ? {
       registrationNumber: vehicle.registrationNumber,
-      category: vehicle.category,
+      categoryId: vehicle.categoryId || (vehicleCategories.find(c => c.name === vehicle.category)?.id || ''),
       owner: vehicle.owner,
       status: vehicle.status,
       insuranceExpiry: vehicle.insuranceExpiry,
@@ -59,13 +64,15 @@ export const EditVehicle: React.FC = () => {
   }
 
   const onSubmit = async (data: EditVehicleForm) => {
+    const catName = vehicleCategories.find(c => c.id === data.categoryId)?.name || vehicle.category;
     const updates: Partial<Vehicle> = {
       ...data,
+      category: catName,
       mileageTrips: data.mileageTrips ?? undefined,
       mileageKm: data.mileageKm ?? undefined
     };
     try {
-      await updateVehicle(vehicle.id, updates);
+  await updateVehicle(vehicle.id, updates, { photoFile: photoFile || undefined, documentFile: documentFile || undefined });
       toast.success('Vehicle updated');
       navigate(`/vehicles/${vehicle.id}`);
     } catch {
@@ -89,7 +96,7 @@ export const EditVehicle: React.FC = () => {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input {...register('registrationNumber')} label="Registration Number" error={errors.registrationNumber?.message} />
-              <Select {...register('category')} label="Category" error={errors.category?.message} options={[{value:'sedan',label:'Sedan'},{value:'SUV',label:'SUV'},{value:'bus',label:'Bus'},{value:'mini-bus',label:'Mini Bus'}]} />
+              <Select {...register('categoryId')} label="Category" error={errors.categoryId?.message} options={vehicleCategories.map(c => ({ value: c.id, label: c.name }))} />
               <Select {...register('owner')} label="Ownership" error={errors.owner?.message} options={[{value:'owned',label:'Owned'},{value:'rented',label:'Rented'}]} />
               <Select {...register('status')} label="Status" error={errors.status?.message} options={[{value:'active',label:'Active'},{value:'maintenance',label:'Maintenance'},{value:'inactive',label:'Inactive'}]} />
             </div>
@@ -102,6 +109,16 @@ export const EditVehicle: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input type="number" step="1" {...register('mileageTrips', { valueAsNumber: true })} label="Trips (optional)" />
               <Input type="number" step="1" {...register('mileageKm', { valueAsNumber: true })} label="Mileage Km (optional)" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Input type="file" label="Vehicle Image (optional)" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+                {photoFile && <p className="mt-1 text-xs text-gray-500">Selected: {photoFile.name}</p>}
+              </div>
+              <div>
+                <Input type="file" label="Vehicle Document (optional)" accept="image/*,.pdf" onChange={(e) => setDocumentFile(e.target.files?.[0] || null)} />
+                {documentFile && <p className="mt-1 text-xs text-gray-500">Selected: {documentFile.name}</p>}
+              </div>
             </div>
             <div className="flex justify-end space-x-3">
               <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>

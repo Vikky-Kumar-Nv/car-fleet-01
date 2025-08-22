@@ -7,6 +7,7 @@ const customerSchema = new Schema<ICustomer>({
   phone: { type: String, required: true },
   email: { type: String },
   address: { type: String },
+  companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: false, index: true },
   createdAt: { type: Date, default: Date.now },
 });
 

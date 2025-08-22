@@ -32,6 +32,7 @@ import { CreateVehicle } from './pages/vehicles/CreateVehicle';
 import { VehicleDetails } from './pages/vehicles/VehicleDetails';
 import { EditVehicle } from './pages/vehicles/EditVehicle';
 import { VehicleServicingPage } from './pages/vehicles/VehicleServicing';
+import VehicleCategoryPage from './pages/vehicles/VehicleCategory';
 
 // Company Pages
 import { CompanyList } from './pages/companies/CompanyList';
@@ -50,8 +51,13 @@ import { Finance } from './pages/finance/Finance';
 
 // Reports Pages
 import { Reports } from './pages/reports/Reports';
+import { DriverReport } from './pages/reports/DriverReport';
+import { BookingReport } from './pages/reports/BookingReport';
+import { FuelReport } from './pages/reports/FuelReport';
 // Account Page
 import { Account } from './pages/account/Account';
+import FuelManagement from './pages/fuel/FuelManagement';
+import AddFuel from './pages/fuel/AddFuel';
 
 function App() {
   return (
@@ -154,6 +160,10 @@ function App() {
                   path="/vehicles/servicing/manage"
                   element={<ProtectedRoute allowedRoles={['admin','dispatcher']}><VehicleServicingPage /></ProtectedRoute>}
                 />
+                <Route
+                  path="/vehicles/categories"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher']}><VehicleCategoryPage /></ProtectedRoute>}
+                />
                 {/* Companies */}
                 <Route 
                   path="/companies" 
@@ -193,10 +203,31 @@ function App() {
                   path="/finance" 
                   element={<ProtectedRoute allowedRoles={['admin','accountant']}><Finance /></ProtectedRoute>} 
                 />
+                {/* Fuel */}
+                <Route
+                  path="/fuel"
+                  element={<ProtectedRoute allowedRoles={['admin','accountant','dispatcher']}><FuelManagement /></ProtectedRoute>}
+                />
+                <Route
+                  path="/fuel/add"
+                  element={<ProtectedRoute allowedRoles={['admin','accountant','dispatcher']}><AddFuel /></ProtectedRoute>}
+                />
                 {/* Reports */}
                 <Route 
                   path="/reports" 
                   element={<ProtectedRoute allowedRoles={['admin','accountant']}><Reports /></ProtectedRoute>} 
+                />
+                <Route 
+                  path="/reports/driver" 
+                  element={<ProtectedRoute allowedRoles={['admin','accountant']}><DriverReport /></ProtectedRoute>} 
+                />
+                <Route 
+                  path="/reports/booking" 
+                  element={<ProtectedRoute allowedRoles={['admin','accountant']}><BookingReport /></ProtectedRoute>} 
+                />
+                <Route 
+                  path="/reports/fuel" 
+                  element={<ProtectedRoute allowedRoles={['admin','accountant']}><FuelReport /></ProtectedRoute>} 
                 />
                 {/* Account */}
                 <Route

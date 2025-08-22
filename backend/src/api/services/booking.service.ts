@@ -85,3 +85,12 @@ export const uploadDutySlips = async (bookingId: string, files: Express.Multer.F
 export const removeDutySlip = async (bookingId: string, dutySlipPath: string) => {
   return Booking.findByIdAndUpdate(bookingId, { $pull: { dutySlips: { path: dutySlipPath } } }, { new: true }).populate('companyId driverId vehicleId customerId');
 };
+
+export const addPayment = async (bookingId: string, payment: NonNullable<IBooking['payments']>[number]) => {
+  return Booking.findByIdAndUpdate(bookingId, { $push: { payments: payment } }, { new: true }).populate('companyId driverId vehicleId customerId');
+};
+
+export const listPayments = async (bookingId: string) => {
+  const booking = await Booking.findById(bookingId).select('payments');
+  return booking?.payments || [];
+};

@@ -58,12 +58,24 @@ export const VehicleDetails: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900">Basic Info</h2>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          {vehicle.photo && (
+            <div className="md:col-span-2">
+              <p className="font-medium mb-2">Vehicle Image</p>
+              <img src={vehicle.photo} alt="Vehicle" className="max-h-56 rounded border" />
+            </div>
+          )}
           <div><span className="font-medium">Category:</span> {vehicle.category}</div>
           <div><span className="font-medium">Ownership:</span> {vehicle.owner}</div>
           <div><span className="font-medium">Status:</span> {vehicle.status}</div>
           {vehicle.mileageTrips !== undefined && <div><span className="font-medium">Trips:</span> {vehicle.mileageTrips}</div>}
           {vehicle.mileageKm !== undefined && <div><span className="font-medium">Mileage (km):</span> {vehicle.mileageKm?.toLocaleString()}</div>}
           <div><span className="font-medium">Created:</span> {vehicle.createdAt?.slice(0,10)}</div>
+          {vehicle.document && (
+            <div className="md:col-span-2">
+              <span className="font-medium">Document:</span>{' '}
+              <a href={vehicle.document} target="_blank" rel="noreferrer" className="text-amber-600 underline break-all">Open document</a>
+            </div>
+          )}
         </CardContent>
       </Card>
 

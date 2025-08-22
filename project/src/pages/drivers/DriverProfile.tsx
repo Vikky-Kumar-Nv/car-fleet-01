@@ -33,14 +33,54 @@ export const DriverProfile: React.FC = () => {
           <h2 className='text-xl font-semibold text-gray-900'>Basic Info</h2>
         </CardHeader>
         <CardContent className='grid grid-cols-1 md:grid-cols-2 gap-4 text-sm'>
+          {driver.photo && (
+            <div className='md:col-span-2 flex items-center gap-4'>
+              <img
+                src={driver.photo}
+                alt={driver.name}
+                className='h-24 w-24 rounded-full object-cover border border-gray-300 shadow'
+              />
+              <a
+                href={driver.photo}
+                target='_blank'
+                rel='noopener'
+                className='text-amber-600 underline text-sm'
+              >View</a>
+            </div>
+          )}
           <div><span className='font-medium'>Phone:</span> {driver.phone}</div>
           <div><span className='font-medium'>License #:</span> {driver.licenseNumber}</div>
           <div><span className='font-medium'>Aadhaar:</span> {driver.aadhaar}</div>
           <div><span className='font-medium'>Vehicle Type:</span> {driver.vehicleType}</div>
           <div><span className='font-medium'>Payment Mode:</span> {driver.paymentMode}</div>
-          <div><span className='font-medium'>Salary/Rate:</span> ₹{driver.salary.toLocaleString()}</div>
+          {driver.salary !== undefined && <div><span className='font-medium'>Salary/Rate:</span> ₹{driver.salary.toLocaleString()}</div>}
+          <div><span className='font-medium'>Date Of Joining:</span> {driver.dateOfJoining}</div>
+          {driver.referenceNote && <div className='md:col-span-2'><span className='font-medium'>Reference Note:</span> {driver.referenceNote}</div>}
+          {driver.document && <div className='md:col-span-2'><span className='font-medium'>Document:</span> <a href={driver.document as string} target='_blank' rel='noopener' className='text-amber-600 underline'>View</a></div>}
           <div><span className='font-medium'>License Expiry:</span> {driver.licenseExpiry}</div>
           <div><span className='font-medium'>Police Verification Expiry:</span> {driver.policeVerificationExpiry}</div>
+          {driver.licenseDocument && (
+            <div className='md:col-span-2'>
+              <span className='font-medium'>License Document:</span>{' '}
+              <a
+                href={typeof driver.licenseDocument === 'string' ? driver.licenseDocument : driver.licenseDocument.data}
+                target='_blank'
+                rel='noopener'
+                className='text-amber-600 underline'
+              >View</a>
+            </div>
+          )}
+          {driver.policeVerificationDocument && (
+            <div className='md:col-span-2'>
+              <span className='font-medium'>Police Verification Document:</span>{' '}
+              <a
+                href={typeof driver.policeVerificationDocument === 'string' ? driver.policeVerificationDocument : driver.policeVerificationDocument.data}
+                target='_blank'
+                rel='noopener'
+                className='text-amber-600 underline'
+              >View</a>
+            </div>
+          )}
         </CardContent>
       </Card>
 

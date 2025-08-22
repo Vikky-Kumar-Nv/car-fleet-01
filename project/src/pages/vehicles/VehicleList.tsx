@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { DataTable } from '../../components/common/DataTable';
@@ -7,18 +7,24 @@ import { Badge } from '../../components/ui/Badge';
 import { Icon } from '../../components/ui/Icon';
 import { format, parseISO, isBefore, addDays } from 'date-fns';
 import { Vehicle } from '../../types';
+import { vehicleCategoryAPI, VehicleCategoryDTO } from '../../services/api';
 
 export const VehicleList: React.FC = () => {
   const navigate = useNavigate();
   const { vehicles, vehiclesLoading } = useApp();
+  const [vehicleCategories, setVehicleCategories] = useState<VehicleCategoryDTO[]>([]);
+  useEffect(() => { vehicleCategoryAPI.list().then(setVehicleCategories).catch(()=>setVehicleCategories([])); }, []);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'maintenance' | 'inactive'>('all');
   const [ownerFilter, setOwnerFilter] = useState<'all' | 'owned' | 'rented'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'SUV' | 'sedan' | 'bus' | 'mini-bus'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   let filteredVehicles = vehicles;
   if (statusFilter !== 'all') filteredVehicles = filteredVehicles.filter(v => v.status === statusFilter);
   if (ownerFilter !== 'all') filteredVehicles = filteredVehicles.filter(v => v.owner === ownerFilter);
-  if (categoryFilter !== 'all') filteredVehicles = filteredVehicles.filter(v => v.category === categoryFilter);
+  if (categoryFilter !== 'all') {
+  const selected = vehicleCategories.find((c: VehicleCategoryDTO) => c.id === categoryFilter);
+    filteredVehicles = filteredVehicles.filter(v => v.categoryId === categoryFilter || (!v.categoryId && selected && v.category === selected.name));
+  }
 
   const getExpiryStatus = (vehicle: Vehicle) => {
     const thirtyDaysFromNow = addDays(new Date(), 30);
@@ -40,13 +46,26 @@ export const VehicleList: React.FC = () => {
 
   const columns = [
     {
+      key: 'photo' as keyof Vehicle,
+      header: 'Photo',
+      render: (vehicle: Vehicle) => (
+        vehicle.photo ? (
+          <img src={vehicle.photo} alt="vehicle" className="h-10 w-16 object-cover rounded border" />
+        ) : (
+          <div className="h-10 w-16 flex items-center justify-center rounded border bg-gray-50 text-gray-400">
+            <Icon name="car" className="h-4 w-4" />
+          </div>
+        )
+      )
+    },
+    {
       key: 'registrationNumber' as keyof Vehicle,
       header: 'Registration',
       render: (vehicle: Vehicle) => (
         <div className="flex items-center">
           <div>
             <p className="font-medium">{vehicle.registrationNumber}</p>
-            <p className="text-sm text-gray-500 capitalize">{vehicle.category}</p>
+            <p className="text-sm text-gray-500 capitalize">{vehicle.category || vehicleCategories.find((c: { id: string; name: string }) => c.id === vehicle.categoryId)?.name}</p>
           </div>
           {getExpiryStatus(vehicle) === 'expiring' && (
             <Icon name="warning" className="h-4 w-4 text-orange-500 ml-2" />
@@ -55,10 +74,24 @@ export const VehicleList: React.FC = () => {
       )
     },
     {
+      key: 'document' as keyof Vehicle,
+      header: 'Doc',
+      render: (vehicle: Vehicle) => (
+        vehicle.document ? (
+          <a href={vehicle.document} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-600 underline text-xs">
+            <Icon name="file" className="h-3 w-3" />
+            {/\.pdf$/i.test(vehicle.document) ? 'PDF' : 'File'}
+          </a>
+        ) : (
+          <span className="text-xs text-gray-400">—</span>
+        )
+      )
+    },
+    {
       key: 'category' as keyof Vehicle,
       header: 'Category',
       render: (vehicle: Vehicle) => (
-        <span className="capitalize">{vehicle.category}</span>
+  <span className="capitalize">{vehicle.category || vehicleCategories.find((c: { id: string; name: string }) => c.id === vehicle.categoryId)?.name}</span>
       )
     },
     {
@@ -142,6 +175,9 @@ export const VehicleList: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Vehicles</h1>
         <div className="flex items-center space-x-3">
+          <Button variant="outline" onClick={() => navigate('/vehicles/categories')}>
+            <Icon name="filter" className="h-4 w-4 mr-2" /> Category
+          </Button>
           <Button variant="outline" onClick={() => navigate('/vehicles/servicing/manage')}>
             <Icon name="car" className="h-4 w-4 mr-2" /> Servicing
           </Button>
@@ -182,12 +218,11 @@ export const VehicleList: React.FC = () => {
             </div>
             <div>
               <label htmlFor="vehicleCategoryFilter" className="block text-xs font-medium text-gray-500 mb-1">Category</label>
-              <select id="vehicleCategoryFilter" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value as 'all' | 'SUV' | 'sedan' | 'bus' | 'mini-bus')} className="w-full border-gray-300 rounded-md text-sm focus:ring-amber-500 focus:border-amber-500">
+              <select id="vehicleCategoryFilter" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} className="w-full border-gray-300 rounded-md text-sm focus:ring-amber-500 focus:border-amber-500">
                 <option value="all">All</option>
-                <option value="SUV">SUV</option>
-                <option value="sedan">Sedan</option>
-                <option value="bus">Bus</option>
-                <option value="mini-bus">Mini Bus</option>
+                {vehicleCategories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
               </select>
             </div>
             <div className="flex items-end">

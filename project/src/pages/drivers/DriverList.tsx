@@ -29,12 +29,14 @@ export const DriverList: React.FC = () => {
     return 'valid';
   };
 
-  const columns = [
+  interface DriverColumn { key: keyof Driver; header: string; render?: (d: Driver)=>React.ReactNode }
+  const columns: DriverColumn[] = [
     {
       key: 'name' as keyof Driver,
       header: 'Name',
       render: (driver: Driver) => (
         <div className="flex items-center">
+          {driver.photo && <img src={driver.photo} alt={driver.name} className="h-8 w-8 rounded-full object-cover mr-2" />}
           <div>
             <p className="font-medium">{driver.name}</p>
             <p className="text-sm text-gray-500">{driver.phone}</p>
@@ -65,10 +67,11 @@ export const DriverList: React.FC = () => {
         <span className="capitalize">{driver.paymentMode.replace('-', ' ')}</span>
       )
     },
+    // Date of Joining column
     {
-      key: 'salary' as keyof Driver,
-      header: 'Salary/Rate',
-      render: (driver: Driver) => `₹${driver.salary.toLocaleString()}`
+      key: 'dateOfJoining',
+      header: 'Joined',
+      render: (driver: Driver) => driver.dateOfJoining ? format(parseISO(driver.dateOfJoining), 'MMM d, yyyy') : '—'
     },
     {
       key: 'licenseExpiry' as keyof Driver,

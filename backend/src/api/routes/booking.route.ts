@@ -15,5 +15,7 @@ router.post('/:id/expenses', auth(['admin', 'dispatcher']), controller.addExpens
 router.put('/:id/status', auth(['admin', 'dispatcher', 'driver']), controller.updateStatus); // Driver can update status
 router.post('/:id/duty-slips', auth(['admin', 'dispatcher']), controller.uploadDutySlips);
 router.put('/:id/remove-duty-slip', auth(['admin', 'dispatcher']), controller.removeDutySlip);
+router.post('/:id/payments', auth(['admin','accountant','dispatcher']), controller.addPayment);
+router.get('/:id/payments', auth(['admin','accountant','dispatcher','customer']), controller.getPayments);
 
 export { router as bookingRouter };

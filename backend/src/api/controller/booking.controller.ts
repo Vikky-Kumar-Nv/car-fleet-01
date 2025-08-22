@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import * as service from '../services';
-import { bookingSchema, updateBookingSchema, expenseSchema, statusSchema } from '../validation';
+import { bookingSchema, updateBookingSchema, expenseSchema, statusSchema, bookingPaymentSchema } from '../validation';
 
 export const createBooking = async (req: Request, res: Response) => {
   const data = bookingSchema.parse(req.body);
@@ -85,4 +85,17 @@ export const removeDutySlip = async (req: Request, res: Response) => {
   const booking = await service.removeDutySlip(req.params.id, path);
   if (!booking) return res.status(404).json({ message: 'Booking not found' });
   res.json(booking);
+};
+
+export const addPayment = async (req: Request, res: Response) => {
+  const data = bookingPaymentSchema.parse(req.body);
+  const payment = { ...data, paidOn: new Date(data.paidOn) };
+  const booking = await service.addPayment(req.params.id, payment as any);
+  if (!booking) return res.status(404).json({ message: 'Booking not found' });
+  res.json(booking);
+};
+
+export const getPayments = async (req: Request, res: Response) => {
+  const payments = await service.listPayments(req.params.id);
+  res.json(payments);
 };

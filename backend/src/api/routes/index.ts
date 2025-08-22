@@ -10,6 +10,8 @@ import { financeRouter } from './finance.route';
 import { customerRouter } from './customer.route';
 import { vehicleCategoryRouter } from './vehicleCategory.route';
 import { vehicleServicingRouter } from './vehicleServicing.route';
+import { fuelRouter } from './fuel.route';
+import { cityRouter } from './city.route';
 import { apiLimiter, auth } from '../middleware';
 import * as driverReportController from '../controller/driverReport.controller';
 
@@ -26,6 +28,8 @@ router.use('/finance', apiLimiter, financeRouter);
 router.use('/customers', apiLimiter, customerRouter);
 router.use('/vehicle-categories', apiLimiter, vehicleCategoryRouter);
 router.use('/vehicles', apiLimiter, vehicleServicingRouter); // nested servicing endpoints under /vehicles/:vehicleId/servicing
+router.use('/fuel', apiLimiter, fuelRouter);
+router.use('/cities', cityRouter);
 
 // aggregated driver reports month listing
 router.get('/driver-reports', apiLimiter, auth(['admin','dispatcher','accountant']), driverReportController.listAllDriverMonthReports);
