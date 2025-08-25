@@ -50,6 +50,7 @@ else {
     }));
     app.use(express_1.default.json());
     app.use(middleware_1.apiLimiter);
+    app.get('/', (req, res) => res.json({ message: 'Backend API is running on Vercel!' }));
     // Serve uploaded files
     app.use('/uploads', express_1.default.static(config_1.config.uploadDir));
     mongoose_1.default.connect(config_1.config.mongoURI).then(() => __awaiter(void 0, void 0, void 0, function* () {
