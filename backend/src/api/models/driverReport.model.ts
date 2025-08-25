@@ -22,4 +22,6 @@ driverReportSchema.pre('save', function(next) {
   next();
 });
 
-export const DriverReport = model<IDriverReportEntry>('DriverReport', driverReportSchema);
+const DriverReport = model<IDriverReportEntry>('DriverReport', driverReportSchema);
+export { DriverReport };
+export default DriverReport;
