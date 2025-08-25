@@ -35,18 +35,20 @@ This document validates that the consolidated route structure is ready for deplo
 ```json
 {
   "functions": {
-    "src/index.ts": {
+    "api/index.ts": {
       "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/src/index.ts"
+      "destination": "/api/index.ts"
     }
   ]
 }
 ```
+
+**Single Entry Point**: `api/index.ts` - Imports and exports the main Express app to ensure Vercel treats it as a single function.
 
 ### 5. TypeScript Compilation
 - **Status**: ✅ Successful

@@ -28,9 +28,10 @@ function validateVercelConfig() {
   const vercelConfig = JSON.parse(fs.readFileSync(vercelConfigPath, 'utf8'));
   
   // Check if using single function deployment (recommended for consolidated routes)
-  if (vercelConfig.functions && vercelConfig.functions['src/index.ts']) {
+  if (vercelConfig.functions && (vercelConfig.functions['src/index.ts'] || vercelConfig.functions['api/index.ts'])) {
+    const functionConfig = vercelConfig.functions['src/index.ts'] || vercelConfig.functions['api/index.ts'];
     console.log('✅ Single function deployment configured');
-    console.log(`   Max duration: ${vercelConfig.functions['src/index.ts'].maxDuration}s`);
+    console.log(`   Max duration: ${functionConfig.maxDuration}s`);
   }
   
   // Check rewrites configuration
