@@ -38,6 +38,8 @@ if (cluster.isMaster) {
   app.use(express.json());
   app.use(apiLimiter);
 
+  app.get('/', (req, res) => res.json({ message: 'Backend API is running on Vercel!' }));
+
   // Serve uploaded files
   app.use('/uploads', express.static(config.uploadDir));
 
