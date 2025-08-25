@@ -27,33 +27,31 @@ exports.apiRouter = void 0;
 const express_1 = require("express");
 const auth_route_1 = require("./auth.route");
 const booking_route_1 = require("./booking.route");
-const driver_route_1 = require("./driver.route");
-const vehicle_route_1 = require("./vehicle.route");
 const company_route_1 = require("./company.route");
-const payment_route_1 = require("./payment.route");
-const report_route_1 = require("./report.route");
-const finance_route_1 = require("./finance.route");
-const customer_route_1 = require("./customer.route");
-const vehicleCategory_route_1 = require("./vehicleCategory.route");
-const vehicleServicing_route_1 = require("./vehicleServicing.route");
-const fuel_route_1 = require("./fuel.route");
 const city_route_1 = require("./city.route");
+const vehicles_route_1 = require("./vehicles.route");
+const users_route_1 = require("./users.route");
+const financial_route_1 = require("./financial.route");
+const operations_route_1 = require("./operations.route");
 const middleware_1 = require("../middleware");
 const driverReportController = __importStar(require("../controller/driverReport.controller"));
 const router = (0, express_1.Router)();
 exports.apiRouter = router;
 router.use('/auth', auth_route_1.authRouter);
 router.use('/bookings', middleware_1.apiLimiter, booking_route_1.bookingRouter);
-router.use('/drivers', middleware_1.apiLimiter, driver_route_1.driverRouter);
-router.use('/vehicles', middleware_1.apiLimiter, vehicle_route_1.vehicleRouter);
 router.use('/companies', middleware_1.apiLimiter, company_route_1.companyRouter);
-router.use('/payments', middleware_1.apiLimiter, payment_route_1.paymentRouter);
-router.use('/reports', middleware_1.apiLimiter, report_route_1.reportRouter);
-router.use('/finance', middleware_1.apiLimiter, finance_route_1.financeRouter);
-router.use('/customers', middleware_1.apiLimiter, customer_route_1.customerRouter);
-router.use('/vehicle-categories', middleware_1.apiLimiter, vehicleCategory_route_1.vehicleCategoryRouter);
-router.use('/vehicles', middleware_1.apiLimiter, vehicleServicing_route_1.vehicleServicingRouter); // nested servicing endpoints under /vehicles/:vehicleId/servicing
-router.use('/fuel', middleware_1.apiLimiter, fuel_route_1.fuelRouter);
 router.use('/cities', city_route_1.cityRouter);
+// Consolidated routes - preserving original endpoint URLs
+router.use('/vehicles', middleware_1.apiLimiter, vehicles_route_1.vehiclesRouter);
+// Mount consolidated routers to preserve original endpoint URLs
+// All mounted at root to handle their respective endpoint patterns
+router.use('/', middleware_1.apiLimiter, users_route_1.usersRouter); // handles /customers/*, /drivers/*
+router.use('/', middleware_1.apiLimiter, financial_route_1.financialRouter); // handles /payments/*, /metrics/*, /drivers/:id/payments/*
+router.use('/', middleware_1.apiLimiter, operations_route_1.operationsRouter); // handles /reports/*, /fuel/*
+// Add missing /finance/* endpoints that were lost in consolidation
+// These delegate to the appropriate handlers in the financial router
+const financeController = __importStar(require("../controller/finance.controller"));
+router.get('/finance/metrics', middleware_1.apiLimiter, (0, middleware_1.auth)(['admin', 'accountant']), financeController.getFinanceMetrics);
+router.get('/finance/drivers/:id/payments', middleware_1.apiLimiter, (0, middleware_1.auth)(['admin', 'accountant']), financeController.getDriverPayments);
 // aggregated driver reports month listing
 router.get('/driver-reports', middleware_1.apiLimiter, (0, middleware_1.auth)(['admin', 'dispatcher', 'accountant']), driverReportController.listAllDriverMonthReports);
