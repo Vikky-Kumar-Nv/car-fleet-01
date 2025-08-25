@@ -23,7 +23,6 @@ __exportStar(require("./booking.model"), exports);
 __exportStar(require("./driverReport.model"), exports);
 __exportStar(require("./payment.model"), exports);
 __exportStar(require("./customer.model"), exports);
-__exportStar(require("./driverReport.model"), exports);
 __exportStar(require("./vehicleCategory.model"), exports);
 __exportStar(require("./vehicleServicing.model"), exports);
 // export * from './city.model'; // will enable after file is present
