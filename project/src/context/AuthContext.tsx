@@ -172,10 +172,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
 
-  const logout = () => {
+  const logout = (redirect = false) => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
     setUser(null);
+    if (redirect && !window.location.pathname.includes('/login')) {
+      window.location.href = '/login';
+    }
   };
 
   const hasRole = (roles: UserRole[]): boolean => {
