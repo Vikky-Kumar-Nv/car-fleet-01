@@ -26,20 +26,53 @@ api.interceptors.request.use(
   }
 );
 
+// Custom error response type
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+  statusCode?: number;
+}
+
+// Create custom events
+const sessionExpiredEvent = new Event('session-expired');
+
+// Toast message state tracking
+const toastMessages = new Set<string>();
+
+// Helper to show toast only once
+const showToastOnce = (message: string, id: string, type: 'error' | 'success' = 'error') => {
+  if (!toastMessages.has(id)) {
+    toastMessages.add(id);
+    toast[type](message, { id });
+    // Clean up after toast duration (default is 4000ms)
+    setTimeout(() => toastMessages.delete(id), 4000);
+  }
+};
+
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
-      window.location.href = '/login';
-      toast.error('Session expired. Please login again.');
+      const isValidationRequest = error.config?.url?.includes('/validate');
+      const isLoginRequest = error.config?.url?.includes('/login');
+      
+      if (!isValidationRequest && !isLoginRequest) {
+        // Only clear storage and dispatch event if not already on login page
+        if (!window.location.pathname.includes('/login')) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
+          // Dispatch session expired event instead of direct navigation
+          window.dispatchEvent(sessionExpiredEvent);
+          showToastOnce('Session expired. Please login again.', 'session-expired');
+        }
+      }
     } else if (error.response?.status === 429) {
-      toast.error('Too many requests. Please try again later.');
-  } else if ((error.response?.status ?? 0) >= 500) {
-      toast.error('Server error. Please try again later.');
+      showToastOnce('Too many requests. Please try again later.', 'rate-limit');
+    } else if ((error.response?.status ?? 0) >= 500) {
+      const data = error.response?.data as ApiErrorResponse;
+      const errorMessage = data?.message || data?.error || 'Server error. Please try again later.';
+      showToastOnce(errorMessage, 'server-error');
     }
     return Promise.reject(error);
   }
@@ -134,7 +167,7 @@ export const authAPI = {
       name: raw.name,
       phone: raw.phone,
       role: raw.role,
-  createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date(raw.createdAt || Date.now()).toISOString(),
     };
   },
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
