@@ -60,7 +60,20 @@ export const CreateDriver: React.FC = () => {
       const payload = { ...formValues };
       // Build named FormData manually because backend expects named fields, not generic array
       const fd = new FormData();
-      Object.entries(payload).forEach(([k,v])=>{ if(v!==undefined && v!==null) fd.append(k, String(v)); });
+      const toIso = (val: unknown) => {
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+          return new Date(val + 'T00:00:00.000Z').toISOString();
+        }
+        return String(val);
+      };
+      Object.entries(payload).forEach(([k,v])=>{
+        if(v===undefined || v===null) return;
+        if (k === 'licenseExpiry' || k === 'policeVerificationExpiry' || k === 'dateOfJoining') {
+          fd.append(k, toIso(v));
+        } else {
+          fd.append(k, String(v));
+        }
+      });
       if (photoFile && photoFile[0]) fd.append('photo', photoFile[0]);
       if (documentFile && documentFile[0]) fd.append('licenseDocument', documentFile[0]);
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/drivers`, {
@@ -68,7 +81,14 @@ export const CreateDriver: React.FC = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')||''}` },
         body: fd,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        let msg = 'Upload failed';
+        try {
+          const text = await res.text();
+          msg = (()=>{ try { const j = JSON.parse(text); return j.error || j.message || text; } catch { return text; } })();
+  } catch { /* ignore parse errors */ }
+        throw new Error(msg);
+      }
       const created = await res.json();
       const normalized = {
         id: created._id || created.id || '',
@@ -97,8 +117,9 @@ export const CreateDriver: React.FC = () => {
   addDriver(driverForContext);
       toast.success('Driver created successfully!');
       navigate('/drivers');
-  } catch {
-      toast.error('Failed to create driver');
+  } catch (e) {
+      const err = e as Error;
+      toast.error(err.message || 'Failed to create driver');
     }
   };
 

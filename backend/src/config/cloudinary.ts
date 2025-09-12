@@ -1,5 +1,13 @@
 import { v2 as cloudinary } from 'cloudinary';
 
+// Determine if Cloudinary is properly configured
+export const isCloudinaryConfigured = Boolean(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+// Configure only with provided env values; missing values mean uploads should be skipped/fallback
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,

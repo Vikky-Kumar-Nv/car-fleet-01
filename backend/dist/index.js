@@ -39,14 +39,23 @@ else {
     // Broaden CORS in development to allow Vite dev server (5173) while keeping configured frontend URL
     app.use((0, cors_1.default)({
         origin: (origin, callback) => {
-            const allowed = [config_1.config.frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
-            if (!origin || allowed.includes(origin))
-                return callback(null, true);
-            // In production you may want to reject; for now just log and reject
-            console.warn('CORS blocked origin:', origin);
-            return callback(new Error('Not allowed by CORS'));
+            const allowed = [
+                config_1.config.frontendUrl,
+                'http://localhost:5173',
+                'http://127.0.0.1:5173',
+                'https://car-fleet-01.vercel.app'
+            ];
+            if (!origin || allowed.includes(origin)) {
+                callback(null, true);
+            }
+            else {
+                console.warn('CORS blocked origin:', origin);
+                callback(null, true); // Allow all origins in development
+            }
         },
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
     }));
     app.use(express_1.default.json());
     app.use(middleware_1.apiLimiter);

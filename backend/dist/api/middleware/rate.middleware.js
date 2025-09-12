@@ -27,8 +27,8 @@ exports.loginLimiter = exports.apiLimiter = void 0;
 // src/middleware/rate.middleware.ts
 const express_rate_limit_1 = __importStar(require("express-rate-limit"));
 exports.apiLimiter = (0, express_rate_limit_1.default)({
-    windowMs: 55 * 60 * 1000, // 15 minutes
-    max: 300,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // increased limit for development
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res /*, next*/) => {
@@ -37,8 +37,8 @@ exports.apiLimiter = (0, express_rate_limit_1.default)({
 });
 // Login limiter: increase threshold and key by IP+email to avoid locking all users after a few attempts
 exports.loginLimiter = (0, express_rate_limit_1.default)({
-    windowMs: 55 * 60 * 1000, // 15 minutes
-    max: 405, // allow more tries during dev
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 50, // 50 login attempts per 15 minutes per IP+email
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => { var _a; return `${(0, express_rate_limit_1.ipKeyGenerator)(req.ip || '')}:${(((_a = req.body) === null || _a === void 0 ? void 0 : _a.email) || '').toLowerCase()}`; },

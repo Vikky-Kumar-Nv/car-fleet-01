@@ -31,100 +31,151 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.settleAdvance = exports.addAdvance = exports.deleteDriver = exports.updateDriver = exports.getDriverById = exports.getDrivers = exports.createDriver = void 0;
 const service = __importStar(require("../services"));
 const validation_1 = require("../validation");
 const cloudinary_1 = require("../../config/cloudinary");
-const createDriver = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    // If multipart form-data used, multer (upload middleware) should have run before this controller.
-    const data = validation_1.driverSchema.parse(req.body);
-    const driverData = Object.assign(Object.assign({}, data), { licenseExpiry: new Date(data.licenseExpiry), policeVerificationExpiry: new Date(data.policeVerificationExpiry), dateOfJoining: new Date(data.dateOfJoining), status: data.status || 'active' });
-    // Handle uploaded files if present
-    // Expect fields: photo (single), document (single), licenseDocument, policeVerificationDocument
-    // When using multer.array('files'), files do not have fieldname mapping unless custom. For simplicity we also allow direct string paths from body.
-    const files = req.files;
-    if (files) {
+const path_1 = __importDefault(require("path"));
+const createDriver = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        // If multipart form-data used, multer (upload middleware) should have run before this controller.
+        const data = validation_1.driverSchema.parse(req.body);
+        const driverData = Object.assign(Object.assign({}, data), { licenseExpiry: new Date(data.licenseExpiry), policeVerificationExpiry: new Date(data.policeVerificationExpiry), dateOfJoining: new Date(data.dateOfJoining), status: data.status || 'active' });
+        // Handle uploaded files if present
+        const files = req.files;
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
         const assign = (field, targetField) => __awaiter(void 0, void 0, void 0, function* () {
-            const fArr = files[field];
+            const fArr = files === null || files === void 0 ? void 0 : files[field];
             if (fArr && fArr[0]) {
-                const uploaded = yield (0, cloudinary_1.uploadToCloudinary)(fArr[0].path, 'drivers');
-                driverData[targetField] = uploaded.url;
-                driverData[`${targetField}PublicId`] = uploaded.publicId;
+                if (cloudinary_1.isCloudinaryConfigured) {
+                    const uploaded = yield (0, cloudinary_1.uploadToCloudinary)(fArr[0].path, 'drivers');
+                    driverData[targetField] = uploaded.url;
+                    driverData[`${targetField}PublicId`] = uploaded.publicId;
+                }
+                else {
+                    const filename = path_1.default.basename(fArr[0].path);
+                    driverData[targetField] = `${baseUrl}/uploads/${filename}`;
+                }
             }
         });
-        yield assign('photo', 'photo');
-        yield assign('licenseDocument', 'licenseDocument');
-        yield assign('policeVerificationDocument', 'policeVerificationDocument');
-        yield assign('document', 'document');
+        yield Promise.all([
+            assign('photo', 'photo'),
+            assign('licenseDocument', 'licenseDocument'),
+            assign('policeVerificationDocument', 'policeVerificationDocument'),
+            assign('document', 'document')
+        ]);
+        const driver = yield service.createDriver(driverData);
+        res.status(201).json(driver);
     }
-    const driver = yield service.createDriver(driverData);
-    res.status(201).json(driver);
+    catch (err) {
+        next(err);
+    }
 });
 exports.createDriver = createDriver;
-const getDrivers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const filters = { status: req.query.status, paymentMode: req.query.paymentMode };
-    const result = yield service.getDrivers(page, limit, filters);
-    res.json(result);
+const getDrivers = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const filters = { status: req.query.status, paymentMode: req.query.paymentMode };
+        const result = yield service.getDrivers(page, limit, filters);
+        res.json(result);
+    }
+    catch (err) {
+        next(err);
+    }
 });
 exports.getDrivers = getDrivers;
-const getDriverById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const driver = yield service.getDriverById(req.params.id);
-    if (!driver)
-        return res.status(404).json({ message: 'Driver not found' });
-    res.json(driver);
+const getDriverById = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const driver = yield service.getDriverById(req.params.id);
+        if (!driver)
+            return res.status(404).json({ message: 'Driver not found' });
+        res.json(driver);
+    }
+    catch (err) {
+        next(err);
+    }
 });
 exports.getDriverById = getDriverById;
-const updateDriver = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const data = validation_1.updateDriverSchema.parse(req.body);
-    const updateData = Object.assign({}, data);
-    // Convert date strings to Date objects
-    if (updateData.licenseExpiry)
-        updateData.licenseExpiry = new Date(updateData.licenseExpiry);
-    if (updateData.policeVerificationExpiry)
-        updateData.policeVerificationExpiry = new Date(updateData.policeVerificationExpiry);
-    if (updateData.dateOfJoining)
-        updateData.dateOfJoining = new Date(updateData.dateOfJoining);
-    const ufiles = req.files;
-    if (ufiles) {
+const updateDriver = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const data = validation_1.updateDriverSchema.parse(req.body);
+        const updateData = Object.assign({}, data);
+        // Convert date strings to Date objects
+        if (updateData.licenseExpiry)
+            updateData.licenseExpiry = new Date(updateData.licenseExpiry);
+        if (updateData.policeVerificationExpiry)
+            updateData.policeVerificationExpiry = new Date(updateData.policeVerificationExpiry);
+        if (updateData.dateOfJoining)
+            updateData.dateOfJoining = new Date(updateData.dateOfJoining);
+        const ufiles = req.files;
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
         const assign = (field, targetField) => __awaiter(void 0, void 0, void 0, function* () {
-            const fArr = ufiles[field];
+            const fArr = ufiles === null || ufiles === void 0 ? void 0 : ufiles[field];
             if (fArr && fArr[0]) {
-                const uploaded = yield (0, cloudinary_1.uploadToCloudinary)(fArr[0].path, 'drivers');
-                updateData[targetField] = uploaded.url;
-                updateData[`${targetField}PublicId`] = uploaded.publicId;
+                if (cloudinary_1.isCloudinaryConfigured) {
+                    const uploaded = yield (0, cloudinary_1.uploadToCloudinary)(fArr[0].path, 'drivers');
+                    updateData[targetField] = uploaded.url;
+                    updateData[`${targetField}PublicId`] = uploaded.publicId;
+                }
+                else {
+                    const filename = path_1.default.basename(fArr[0].path);
+                    updateData[targetField] = `${baseUrl}/uploads/${filename}`;
+                }
             }
         });
-        yield assign('photo', 'photo');
-        yield assign('licenseDocument', 'licenseDocument');
-        yield assign('policeVerificationDocument', 'policeVerificationDocument');
-        yield assign('document', 'document');
+        yield Promise.all([
+            assign('photo', 'photo'),
+            assign('licenseDocument', 'licenseDocument'),
+            assign('policeVerificationDocument', 'policeVerificationDocument'),
+            assign('document', 'document')
+        ]);
+        const driver = yield service.updateDriver(req.params.id, updateData);
+        if (!driver)
+            return res.status(404).json({ message: 'Driver not found' });
+        res.json(driver);
     }
-    const driver = yield service.updateDriver(req.params.id, updateData);
-    if (!driver)
-        return res.status(404).json({ message: 'Driver not found' });
-    res.json(driver);
+    catch (err) {
+        next(err);
+    }
 });
 exports.updateDriver = updateDriver;
-const deleteDriver = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    yield service.deleteDriver(req.params.id);
-    res.status(204).send();
+const deleteDriver = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.deleteDriver(req.params.id);
+        res.status(204).send();
+    }
+    catch (err) {
+        next(err);
+    }
 });
 exports.deleteDriver = deleteDriver;
-const addAdvance = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const data = validation_1.advanceSchema.parse(req.body);
-    const advanceData = Object.assign(Object.assign({}, data), { date: new Date(), settled: false, description: data.description || '' });
-    const driver = yield service.addAdvance(req.params.id, advanceData);
-    if (!driver)
-        return res.status(404).json({ message: 'Driver not found' });
-    res.json(driver);
+const addAdvance = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const data = validation_1.advanceSchema.parse(req.body);
+        const advanceData = Object.assign(Object.assign({}, data), { date: new Date(), settled: false, description: data.description || '' });
+        const driver = yield service.addAdvance(req.params.id, advanceData);
+        if (!driver)
+            return res.status(404).json({ message: 'Driver not found' });
+        res.json(driver);
+    }
+    catch (err) {
+        next(err);
+    }
 });
 exports.addAdvance = addAdvance;
-const settleAdvance = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { advanceId } = req.body;
-    yield service.settleAdvance(req.params.id, advanceId);
-    res.status(200).json({ message: 'Advance settled' });
+const settleAdvance = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { advanceId } = req.body;
+        yield service.settleAdvance(req.params.id, advanceId);
+        res.status(200).json({ message: 'Advance settled' });
+    }
+    catch (err) {
+        next(err);
+    }
 });
 exports.settleAdvance = settleAdvance;
