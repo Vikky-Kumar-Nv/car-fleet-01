@@ -33,7 +33,7 @@ type DriverFormData = DriverSchemaFields & { photoFile?: FileList; documentFile?
 
 export const CreateDriver: React.FC = () => {
   const navigate = useNavigate();
-  const { addDriver } = useApp();
+  const { appendDriverLocal } = useApp();
 
   // Create a resolver that ignores the file fields by mapping them out before validation
   const schemaResolver: Resolver<DriverFormData> = async (values, context, options) => {
@@ -111,10 +111,8 @@ export const CreateDriver: React.FC = () => {
         status: created.status as 'active' | 'inactive',
         createdAt: new Date(created.createdAt || Date.now()).toISOString(),
       };
-      // insert into context without id/createdAt per addDriver signature
-  // Exclude id & createdAt for context add (API layer will manage persisted entity fetch later)
-  const { id: _omitId, createdAt: _omitCreatedAt, ...driverForContext } = normalized; // eslint-disable-line @typescript-eslint/no-unused-vars
-  addDriver(driverForContext);
+    // Append created driver locally without triggering another POST
+    appendDriverLocal(normalized as unknown as Driver);
       toast.success('Driver created successfully!');
       navigate('/drivers');
   } catch (e) {

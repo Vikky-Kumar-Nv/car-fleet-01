@@ -17,6 +17,8 @@ interface AppContextType {
   // Drivers
   drivers: Driver[];
   addDriver: (driver: Omit<Driver, 'id' | 'createdAt'>) => void;
+  // Append a driver already created on the server (avoid extra POST)
+  appendDriverLocal: (driver: Driver) => void;
   updateDriver: (id: string, updates: Partial<Driver>) => void;
   deleteDriver: (id: string) => void;
   addDriverAdvance: (driverId: string, advance: Omit<Advance, 'id' | 'settled'>) => void;
@@ -295,6 +297,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const appendDriverLocal = (driver: Driver) => {
+    setDrivers(prev => [...prev, driver]);
+  };
+
   const updateDriver = async (id: string, updates: Partial<Driver>) => {
     setDrivers(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     try {
@@ -525,7 +531,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
   bookings, addBooking, updateBooking, deleteBooking, updateBookingStatus, toggleBookingBilled, bookingsLoading,
-  drivers, addDriver, updateDriver, deleteDriver, addDriverAdvance, driversLoading,
+  drivers, addDriver, appendDriverLocal, updateDriver, deleteDriver, addDriverAdvance, driversLoading,
   vehicles, addVehicle, updateVehicle, deleteVehicle, vehiclesLoading,
   companies, addCompany, updateCompany, deleteCompany,
   customers, addCustomer, updateCustomer, deleteCustomer, customersLoading,
