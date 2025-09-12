@@ -69,8 +69,8 @@ export const Login: React.FC = () => {
       </div>
 
       {/* Right card */}
-      <div className="flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-md">
+      <div className="flex items-center justify-center p-6 sm:p-10 b">
+        <div className="w-full max-w-md bg-orange-200 rounded-xl">
           <div className="backdrop-blur bg-white/80 border border-amber-100 shadow-xl rounded-2xl p-8">
             <div className="flex items-center justify-center gap-2 mb-2 lg:hidden">
               <Icon name="car" className="h-8 w-8 text-amber-600" />
