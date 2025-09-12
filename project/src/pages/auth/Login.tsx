@@ -20,6 +20,7 @@ export const Login: React.FC = () => {
   const { user, login } = useAuth();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -53,58 +54,73 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex justify-center">
-            <div className="flex items-center">
-              <Icon name="car" className="h-12 w-12 text-amber-600" />
-              <span className="ml-2 text-3xl font-bold text-gray-900">Car Fleet</span>
-            </div>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gradient-to-br from-amber-50 via-white to-amber-100">
+      {/* Left hero/branding */}
+      <div className="hidden lg:flex flex-col justify-between p-12 bg-[radial-gradient(circle_at_20%_20%,#f59e0b22,transparent_50%),radial-gradient(circle_at_80%_80%,#f59e0b22,transparent_50%)]">
+        <div className="flex items-center gap-3">
+          <Icon name="car" className="h-10 w-10 text-amber-600" />
+          <span className="text-2xl font-bold text-gray-900">Car Fleet</span>
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-4">
-            <Input
-              {...register('email')}
-              type="email"
-              label="Email address"
-              error={errors.email?.message}
-              placeholder="Enter your email"
-            />
-            
-            <Input
-              {...register('password')}
-              type="password"
-              label="Password"
-              error={errors.password?.message}
-              placeholder="Enter your password"
-            />
-          </div>
+        <div className="max-w-xl">
+          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-4">Manage your fleet with ease</h1>
+          <p className="text-gray-600 text-lg">Bookings, drivers, vehicles, and finances — all in one fast, modern dashboard. Sign in to continue.</p>
+        </div>
+        <div className="text-gray-500 text-sm">© {new Date().getFullYear()} Car Fleet. All rights reserved.</div>
+      </div>
 
-          <Button
-            type="submit"
-            loading={loading}
-            className="w-full"
-            size="lg"
-          >
-            Sign in
-          </Button>
-
-          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
-            <h3 className="text-sm font-medium text-amber-800 mb-2">Demo Credentials:</h3>
-            <div className="text-xs text-amber-700 space-y-1">
-              <div>Admin: admin@bolt.com / password</div>
-              <div>Accountant: accountant@bolt.com / password</div>
-              <div>Dispatcher: dispatcher@bolt.com / password</div>
-              <div>Driver: driver@bolt.com / password</div>
+      {/* Right card */}
+      <div className="flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-md">
+          <div className="backdrop-blur bg-white/80 border border-amber-100 shadow-xl rounded-2xl p-8">
+            <div className="flex items-center justify-center gap-2 mb-2 lg:hidden">
+              <Icon name="car" className="h-8 w-8 text-amber-600" />
+              <span className="text-xl font-bold text-gray-900">Car Fleet</span>
             </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h2>
+            <p className="text-gray-500 mb-6">Please sign in to your account</p>
+
+            <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+              <Input
+                {...register('email')}
+                type="email"
+                label="Email address"
+                error={errors.email?.message}
+                placeholder="you@example.com"
+              />
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <button type="button" className="text-xs text-amber-600 hover:text-amber-700" onClick={()=>setShowPassword(s=>!s)}>
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <Input
+                  {...register('password')}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  error={errors.password?.message}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <label className="inline-flex items-center gap-2 select-none">
+                  <input type="checkbox" className="h-4 w-4 text-amber-600 border-gray-300 rounded" />
+                  <span className="text-gray-600">Remember me</span>
+                </label>
+                <a className="text-amber-600 hover:text-amber-700" href="#" onClick={(e)=>e.preventDefault()}>Forgot password?</a>
+              </div>
+
+              <Button type="submit" loading={loading} className="w-full" size="lg">
+                Sign in
+              </Button>
+
+              <div className="text-center text-sm text-gray-600">
+                Don’t have an account?
+                <span className="text-gray-400"> Contact your administrator.</span>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
