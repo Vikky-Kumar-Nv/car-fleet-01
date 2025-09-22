@@ -4,6 +4,8 @@ import { useApp } from '../../context/AppContext';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
+import { financeAPI } from '../../services/api';
+import { DriverFinancePayment } from '../../types';
 
 export const DriverProfile: React.FC = () => {
   const { id } = useParams<{id: string}>();
@@ -11,7 +13,37 @@ export const DriverProfile: React.FC = () => {
   const { drivers, payments, settleDriverAdvance, addDriverAdvance } = useApp();
   const [advAmount, setAdvAmount] = React.useState('');
   const [advDesc, setAdvDesc] = React.useState('');
+  const [loadingDriverPayments, setLoadingDriverPayments] = React.useState(false);
+  const [driverPayments, setDriverPayments] = React.useState<DriverFinancePayment[]>([]);
+  const [viewMode, setViewMode] = React.useState<'trip' | 'day'>('trip');
   const driver = drivers.find(d => d.id === id);
+
+  React.useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        setLoadingDriverPayments(true);
+        const list = await financeAPI.getDriverPayments(id);
+        setDriverPayments(list);
+      } catch (err) {
+        console.error('Failed to load driver payments', err);
+      } finally {
+        setLoadingDriverPayments(false);
+      }
+    })();
+  }, [id]);
+
+  // Aggregate per-day (sum of amounts by date (YYYY-MM-DD))
+  const perDay = React.useMemo(() => {
+    const map: Record<string, { date: string; total: number; count: number }> = {};
+    driverPayments.forEach(p => {
+      const day = p.date ? new Date(p.date).toISOString().slice(0,10) : 'unknown';
+      if (!map[day]) map[day] = { date: day, total: 0, count: 0 };
+      map[day].total += p.amount;
+      map[day].count += 1;
+    });
+    return Object.values(map).sort((a,b)=> b.date.localeCompare(a.date));
+  }, [driverPayments]);
 
   if (!driver) {
     return (
@@ -24,9 +56,16 @@ export const DriverProfile: React.FC = () => {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center space-x-4'>
-  <Button variant='outline' onClick={() => navigate('/drivers')}><Icon name='back' className='h-4 w-4 mr-2'/>Back</Button>
-        <h1 className='text-3xl font-bold text-gray-900'>{driver.name}</h1>
+      <div className='flex items-center justify-between flex-wrap gap-3'>
+        <div className='flex items-center space-x-4'>
+          <Button variant='outline' onClick={() => navigate('/drivers')}><Icon name='back' className='h-4 w-4 mr-2'/>Back</Button>
+          <h1 className='text-3xl font-bold text-gray-900'>{driver.name}</h1>
+        </div>
+        <div className='flex items-center gap-2'>
+          <Button size='sm' variant='outline' onClick={()=>navigate(`/drivers/${driver.id}/payments`)}>
+            <Icon name='eye' className='h-4 w-4 mr-1'/> Payment History
+          </Button>
+        </div>
       </div>
       <Card>
         <CardHeader>
@@ -124,22 +163,50 @@ export const DriverProfile: React.FC = () => {
       </Card>
 
       <Card>
-        <CardHeader>
-          <h2 className='text-xl font-semibold text-gray-900'>Recent Payments</h2>
+        <CardHeader className='flex flex-col md:flex-row md:items-center md:justify-between gap-3'>
+          <h2 className='text-xl font-semibold text-gray-900'>Driver Payments</h2>
+          <div className='flex items-center gap-2'>
+            <Button size='sm' variant={viewMode==='trip'? 'primary':'outline'} onClick={()=>setViewMode('trip')}>Trip-wise</Button>
+            <Button size='sm' variant={viewMode==='day'? 'primary':'outline'} onClick={()=>setViewMode('day')}>Per Day</Button>
+          </div>
         </CardHeader>
         <CardContent className='space-y-2 text-sm'>
-          {payments.filter(p => p.entityType==='driver' && p.entityId===driver.id).slice(-5).reverse().map(p => (
-            <div key={p.id} className='flex items-center justify-between p-2 bg-gray-50 rounded'>
-              <div>
-                <p className='font-medium'>{p.description || 'Payment'} {p.relatedAdvanceId && <span className='text-xs text-green-600'>(Advance)</span>}</p>
-                <p className='text-xs text-gray-500'>{new Date(p.date).toLocaleDateString()}</p>
+          {loadingDriverPayments && <p className='text-gray-500'>Loading payments...</p>}
+          {!loadingDriverPayments && viewMode==='trip' && driverPayments.slice(0,15).map(p => {
+            const bookingLabel = p.booking ? `${p.booking.pickupLocation || ''}${p.booking.pickupLocation && p.booking.dropLocation ? ' → ' : ''}${p.booking.dropLocation || ''}` : (p.bookingId ? `#${p.bookingId.slice(-6)}` : '—');
+            return (
+              <div key={p.id} className='p-2 border rounded hover:bg-amber-50 transition cursor-pointer' onClick={()=> p.bookingId && navigate(`/bookings/${p.bookingId}`)}>
+                <div className='flex justify-between items-start'>
+                  <div className='space-y-1'>
+                    <div className='flex items-center gap-2 flex-wrap'>
+                      <span className='font-medium'>₹{p.amount.toLocaleString()}</span>
+                      {p.mode && <span className='px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 border border-amber-300'>{p.mode}</span>}
+                      {p.settled && <span className='px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700 border border-green-300'>settled</span>}
+                    </div>
+                    <p className='text-xs text-gray-600'>Date: {new Date(p.date).toLocaleDateString()} • {p.description || 'Payment'}{p.bookingId && <> • Booking: <span className='underline text-amber-700'>{bookingLabel}</span></>}
+                    </p>
+                    {p.mode==='fuel-basis' && p.fuelQuantity !== undefined && p.fuelRate !== undefined && (
+                      <p className='text-xs text-gray-500'>Fuel: {p.fuelQuantity} L × ₹{p.fuelRate} = ₹{(p.computedAmount ?? p.fuelQuantity * p.fuelRate).toLocaleString()}</p>
+                    )}
+                  </div>
+                  <span className={p.type==='paid' ? 'text-red-600 text-sm' : 'text-green-600 text-sm'}>
+                    {p.type==='paid' ? '-' : '+'}₹{p.amount.toLocaleString()}
+                  </span>
+                </div>
               </div>
-              <span className={p.type==='paid'?'text-red-600':'text-green-600'}>
-                {p.type==='paid' ? '-' : '+'}₹{p.amount.toLocaleString()}
-              </span>
+            );
+          })}
+          {!loadingDriverPayments && viewMode==='trip' && driverPayments.length===0 && <p className='text-gray-500'>No driver payments yet.</p>}
+
+          {!loadingDriverPayments && viewMode==='day' && perDay.slice(0,30).map(d => (
+            <div key={d.date} className='p-2 border rounded bg-gray-50'>
+              <div className='flex justify-between'>
+                <p className='font-medium'>{d.date}</p>
+                <p className='text-sm font-semibold'>₹{d.total.toLocaleString()} <span className='text-xs text-gray-500'>({d.count} payments)</span></p>
+              </div>
             </div>
           ))}
-          {payments.filter(p => p.entityType==='driver' && p.entityId===driver.id).length===0 && <p className='text-gray-500'>No payments yet.</p>}
+          {!loadingDriverPayments && viewMode==='day' && perDay.length===0 && <p className='text-gray-500'>No driver payments yet.</p>}
         </CardContent>
       </Card>
     </div>

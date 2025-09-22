@@ -1,5 +1,7 @@
 // src/services/api.ts
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { DriverPayment } from '../types';
+type RawDriverPayment = { _id?: string; id?: string; bookingId?: string; entityId?: string; driverPaymentMode?: string; amount: number; description?: string; date?: string; fuelQuantity?: number; fuelRate?: number; computedAmount?: number; distanceKm?: number; mileage?: number; settled?: boolean; settledAt?: string };
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -631,6 +633,71 @@ export const bookingAPI = {
   toggleBilled: async (id: string, billed: boolean): Promise<BookingDTO> => {
     const res = await api.put(`/bookings/${id}`, { billed });
     return bookingAPI._normalize(res.data as RawFullBooking);
+  },
+  addDriverPayment: async (bookingId: string, payload: { driverId: string; mode: 'per-trip'|'daily'|'fuel-basis'; amount?: number; fuelQuantity?: number; fuelRate?: number; description?: string; distanceKm?: number; mileage?: number }): Promise<DriverPayment> => {
+    const res = await api.post(`/bookings/${bookingId}/driver-payments`, { ...payload });
+  const raw = res.data as { _id?: string; id?: string; bookingId?: string; entityId?: string; driverPaymentMode?: string; amount: number; description?: string; date?: string; fuelQuantity?: number; fuelRate?: number; computedAmount?: number; distanceKm?: number; mileage?: number };
+    return {
+      id: raw.id || raw._id || '',
+      bookingId: (raw.bookingId || bookingId) as string,
+      driverId: raw.entityId || payload.driverId,
+      mode: (raw.driverPaymentMode as DriverPayment['mode']) || payload.mode,
+      amount: raw.amount,
+      description: raw.description,
+      date: raw.date || new Date().toISOString(),
+      fuelQuantity: raw.fuelQuantity,
+      fuelRate: raw.fuelRate,
+  computedAmount: raw.computedAmount,
+  distanceKm: raw.distanceKm,
+  mileage: raw.mileage,
+    };
+  },
+  listDriverPayments: async (bookingId: string): Promise<DriverPayment[]> => {
+    const res = await api.get(`/bookings/${bookingId}/driver-payments`);
+  const arr = res.data as RawDriverPayment[];
+    return arr.map(raw => ({
+      id: raw.id || raw._id || '',
+      bookingId: (raw.bookingId || bookingId) as string,
+      driverId: raw.entityId || '',
+      mode: (raw.driverPaymentMode as DriverPayment['mode']) || 'per-trip',
+      amount: raw.amount,
+      description: raw.description,
+      date: raw.date || new Date().toISOString(),
+      fuelQuantity: raw.fuelQuantity,
+      fuelRate: raw.fuelRate,
+  computedAmount: raw.computedAmount,
+  distanceKm: raw.distanceKm,
+  mileage: raw.mileage,
+      settled: raw.settled,
+      settledAt: raw.settledAt,
+    }));
+  },
+  updateDriverPayment: async (bookingId: string, paymentId: string, updates: Partial<{ mode: 'per-trip'|'daily'|'fuel-basis'; amount: number; fuelQuantity: number; fuelRate: number; description: string; settle: boolean; distanceKm: number; mileage: number }>): Promise<DriverPayment> => {
+    const res = await api.put(`/bookings/${bookingId}/driver-payments/${paymentId}`, updates);
+    const raw = res.data as RawDriverPayment;
+    return {
+      id: raw.id || raw._id || '',
+      bookingId: raw.bookingId || bookingId,
+      driverId: raw.entityId || '',
+  mode: (raw.driverPaymentMode as DriverPayment['mode']) || 'per-trip',
+      amount: raw.amount,
+      description: raw.description,
+      date: raw.date || new Date().toISOString(),
+      fuelQuantity: raw.fuelQuantity,
+      fuelRate: raw.fuelRate,
+      computedAmount: raw.computedAmount,
+      distanceKm: raw.distanceKm,
+      mileage: raw.mileage,
+      settled: raw.settled,
+      settledAt: raw.settledAt,
+    };
+  },
+  deleteDriverPayment: async (bookingId: string, paymentId: string): Promise<void> => {
+    await api.delete(`/bookings/${bookingId}/driver-payments/${paymentId}`);
+  },
+  exportDriverPayments: async (bookingId: string): Promise<Blob> => {
+    const res = await api.get(`/bookings/${bookingId}/driver-payments-export`, { responseType: 'blob' });
+    return res.data as Blob;
   }
 };
 
@@ -643,7 +710,38 @@ export const financeAPI = {
   },
   getDriverPayments: async (driverId: string) => {
     const res = await api.get(`/finance/drivers/${driverId}/payments`);
-    return res.data as { id?: string; _id?: string; amount: number; type: string; date: string; description?: string }[];
+    // Backend returns Payment docs (possibly populated bookingId) including driver specific fields
+    interface RawBackendDriverPayment {
+      _id?: string; id?: string; amount: number; type: 'paid' | 'received'; date: string; description?: string;
+      bookingId?: string | { _id: string; pickupLocation?: string; dropLocation?: string; startDate?: string; endDate?: string };
+      driverPaymentMode?: 'per-trip' | 'daily' | 'fuel-basis';
+      fuelQuantity?: number; fuelRate?: number; computedAmount?: number; settled?: boolean; settledAt?: string;
+    }
+    const raw = (res.data as RawBackendDriverPayment[]) || [];
+    return raw.map(p => {
+      const bookingObj = (p.bookingId && typeof p.bookingId === 'object') ? p.bookingId as Exclude<RawBackendDriverPayment['bookingId'], string> : undefined;
+      return {
+        id: p._id || p.id!,
+        amount: p.amount,
+        type: p.type,
+        date: p.date,
+        description: p.description,
+        bookingId: bookingObj?._id || (typeof p.bookingId === 'string' ? p.bookingId : undefined),
+        booking: bookingObj ? {
+          id: bookingObj._id,
+          pickupLocation: bookingObj.pickupLocation,
+          dropLocation: bookingObj.dropLocation,
+          startDate: bookingObj.startDate,
+          endDate: bookingObj.endDate,
+        } : undefined,
+        mode: p.driverPaymentMode,
+        fuelQuantity: p.fuelQuantity,
+        fuelRate: p.fuelRate,
+        computedAmount: p.computedAmount,
+        settled: p.settled,
+        settledAt: p.settledAt,
+      };
+    });
   }
 };
 

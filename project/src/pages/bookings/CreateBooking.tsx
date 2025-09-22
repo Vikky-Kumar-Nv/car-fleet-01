@@ -37,6 +37,14 @@ export const CreateBooking: React.FC = () => {
   const navigate = useNavigate();
   const { addBooking, drivers, vehicles, companies, customers } = useApp();
   const [cities, setCities] = React.useState<string[]>([]);
+
+  const sanitizeCities = React.useCallback((raw: string[]): string[] => {
+    const cleaned = raw
+      .map(c => (c || '').trim())
+      .filter(c => c && c.toLowerCase() !== 'select city')
+      .map(c => c.replace(/\s+/g,' '));
+    return Array.from(new Set(cleaned)).sort((a,b)=> a.localeCompare(b));
+  }, []);
   const [newCity, setNewCity] = React.useState('');
   const [cityModalOpen, setCityModalOpen] = React.useState(false);
   const [cityError, setCityError] = React.useState<string | null>(null);
@@ -59,6 +67,18 @@ export const CreateBooking: React.FC = () => {
   const bookingSource = watch('bookingSource');
   const totalAmount = watch('totalAmount');
   const advanceReceived = watch('advanceReceived');
+  const journeyType = watch('journeyType');
+  const startDateVal = watch('startDate');
+
+  // Hide end date for one-way & transfer
+  const hideEndDate = journeyType === 'outstation-one-way' || journeyType === 'transfer';
+
+  // Keep endDate in sync (auto = startDate) when hidden
+  React.useEffect(() => {
+    if (hideEndDate && startDateVal) {
+      setValue('endDate', startDateVal, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [hideEndDate, startDateVal, setValue]);
 
   // Calculate balance automatically
   React.useEffect(() => {
@@ -94,16 +114,18 @@ export const CreateBooking: React.FC = () => {
   React.useEffect(() => {
     (async () => {
       try {
-        const list = await cityAPI.list();
-        const names = list.map(c => c.name).sort();
-        setCities(names);
-        localStorage.setItem('bolt_cities', JSON.stringify(names));
+    const list = await cityAPI.list();
+    const names = sanitizeCities(list.map(c => c.name));
+    setCities(names);
+    localStorage.setItem('bolt_cities', JSON.stringify(names));
       } catch {
-        const saved = localStorage.getItem('bolt_cities');
-        setCities(saved ? JSON.parse(saved) : []);
+    const saved = localStorage.getItem('bolt_cities');
+    const parsed = saved ? JSON.parse(saved) : [];
+    const cleaned = sanitizeCities(parsed);
+    setCities(cleaned);
       }
     })();
-  }, []);
+  }, [sanitizeCities]);
 
   const driverOptions = drivers
     .filter(d => d.status === 'active')
@@ -171,7 +193,15 @@ export const CreateBooking: React.FC = () => {
                   defaultValue=""
                 >
                   <option value="">-- New / Manual --</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
+                  {customers.map(c => {
+                    const comp = companies.find(co => co.id === c.companyId);
+                    const companyLabel = comp ? comp.name : 'Individual';
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.phone}) - {companyLabel}
+                      </option>
+                    );
+                  })}
                 </select>
                 <input id="selectedCustomerId" name="customerId" type="hidden" />
               </div>
@@ -253,13 +283,14 @@ export const CreateBooking: React.FC = () => {
                 label="Start Date & Time"
                 error={errors.startDate?.message}
               />
-
-              <Input
-                {...register('endDate')}
-                type="datetime-local"
-                label="End Date & Time"
-                error={errors.endDate?.message}
-              />
+              {!hideEndDate && (
+                <Input
+                  {...register('endDate')}
+                  type="datetime-local"
+                  label="End Date & Time"
+                  error={errors.endDate?.message}
+                />
+              )}
             </div>
 
             {/* City of Work */}
@@ -269,7 +300,7 @@ export const CreateBooking: React.FC = () => {
                   {...register('cityOfWork')}
                   label="City of Work"
                   placeholder="Select city"
-                  options={[{ value: '', label: 'Select city' }, ...cities.map(c => ({ value: c, label: c }))]}
+                  options={cities.map(c => ({ value: c, label: c }))}
                 />
               </div>
               <div className="flex items-end">
@@ -369,7 +400,7 @@ export const CreateBooking: React.FC = () => {
             try {
               await cityAPI.create(c);
               const list = await cityAPI.list();
-              const names = list.map(ci => ci.name).sort();
+              const names = sanitizeCities(list.map(ci => ci.name));
               localStorage.setItem('bolt_cities', JSON.stringify(names));
               setCityError(null);
               setCities(names);
@@ -381,8 +412,9 @@ export const CreateBooking: React.FC = () => {
               const saved = localStorage.getItem('bolt_cities');
               const names = saved ? JSON.parse(saved) : [];
               if (!names.includes(c)) names.push(c);
-              localStorage.setItem('bolt_cities', JSON.stringify(names));
-              setCities(names.sort());
+              const cleaned = sanitizeCities(names);
+              localStorage.setItem('bolt_cities', JSON.stringify(cleaned));
+              setCities(cleaned);
               setValue('cityOfWork', c, { shouldDirty: true, shouldValidate: true });
               setNewCity('');
               setCityModalOpen(false);

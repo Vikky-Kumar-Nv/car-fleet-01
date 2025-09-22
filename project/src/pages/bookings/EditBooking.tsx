@@ -39,6 +39,12 @@ export const EditBooking: React.FC = () => {
   const navigate = useNavigate();
   const { bookings, updateBooking, drivers, vehicles, companies } = useApp();
   const [cities, setCities] = React.useState<string[]>([]);
+  const sanitizeCities = React.useCallback((raw: string[]): string[] => {
+    const cleaned = raw.map(c => (c||'').trim())
+      .filter(c => c && c.toLowerCase() !== 'select city')
+      .map(c => c.replace(/\s+/g,' '));
+    return Array.from(new Set(cleaned)).sort((a,b)=> a.localeCompare(b));
+  }, []);
   const [cityModalOpen, setCityModalOpen] = React.useState(false);
   const [newCity, setNewCity] = React.useState('');
   const [cityError, setCityError] = React.useState<string | null>(null);
@@ -49,18 +55,61 @@ export const EditBooking: React.FC = () => {
     handleSubmit,
     watch,
   setValue,
+  reset,
     formState: { errors, isSubmitting },
   } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
-    defaultValues: booking ? {
+    // Start with blank defaults; real booking loaded via effect & reset
+    defaultValues: {
+      customerName: '',
+      customerPhone: '',
+      bookingSource: 'individual',
+      companyId: undefined,
+      pickupLocation: '',
+      dropLocation: '',
+      journeyType: 'outstation-one-way',
+      cityOfWork: '',
+      startDate: '',
+      endDate: '',
+      vehicleId: undefined,
+      driverId: undefined,
+      tariffRate: 0,
+      totalAmount: 0,
+      advanceReceived: 0,
+    }
+  });
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await cityAPI.list();
+        if (cancelled) return;
+        const names = sanitizeCities(list.map(c => c.name));
+        setCities(names);
+        localStorage.setItem('bolt_cities', JSON.stringify(names));
+      } catch {
+        const saved = localStorage.getItem('bolt_cities');
+        const parsed = saved ? JSON.parse(saved) : [];
+        const cleaned = sanitizeCities(parsed);
+        setCities(cleaned);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sanitizeCities]);
+
+  // When booking changes (async load), reset entire form so RHF picks up values.
+  React.useEffect(() => {
+    if (!booking) return;
+    reset({
       customerName: booking.customerName,
       customerPhone: booking.customerPhone,
       bookingSource: booking.bookingSource,
       companyId: booking.companyId,
       pickupLocation: booking.pickupLocation,
       dropLocation: booking.dropLocation,
-  journeyType: booking.journeyType as 'outstation-one-way'|'outstation'|'local-outstation'|'local'|'transfer',
-  cityOfWork: booking.cityOfWork,
+      journeyType: booking.journeyType as 'outstation-one-way'|'outstation'|'local-outstation'|'local'|'transfer',
+      cityOfWork: booking.cityOfWork || '',
       startDate: booking.startDate.slice(0,16),
       endDate: booking.endDate.slice(0,16),
       vehicleId: booking.vehicleId,
@@ -68,20 +117,34 @@ export const EditBooking: React.FC = () => {
       tariffRate: booking.tariffRate,
       totalAmount: booking.totalAmount,
       advanceReceived: booking.advanceReceived,
-    } : undefined
-  });
+    });
+  }, [booking, reset]);
+
+  // Ensure booking's saved city (possibly legacy, different casing, or trimmed) is present in options AFTER cities load/refresh
+  React.useEffect(() => {
+    if (!booking?.cityOfWork) return;
+    const normalized = booking.cityOfWork.trim().replace(/\s+/g,' ');
+    if (!normalized) return;
+    setValue('cityOfWork', normalized, { shouldValidate: false });
+    if (!cities.some(c => c.toLowerCase() === normalized.toLowerCase())) {
+      const next = sanitizeCities([...cities, normalized]);
+      setCities(next);
+      localStorage.setItem('bolt_cities', JSON.stringify(next));
+    }
+  }, [booking?.cityOfWork, cities, setValue, sanitizeCities]);
+
+  const bookingSource = watch('bookingSource');
+  const totalAmount = watch('totalAmount');
+  const advanceReceived = watch('advanceReceived');
+  const journeyType = watch('journeyType');
+  const startDateVal = watch('startDate');
+  const hideEndDate = journeyType === 'outstation-one-way' || journeyType === 'transfer';
 
   React.useEffect(() => {
-    (async () => {
-      try {
-        const list = await cityAPI.list();
-        setCities(list.map(c => c.name).sort());
-      } catch {
-        const saved = localStorage.getItem('bolt_cities');
-        setCities(saved ? JSON.parse(saved) : []);
-      }
-    })();
-  }, []);
+    if (hideEndDate && startDateVal) {
+      setValue('endDate', startDateVal, { shouldDirty: true, shouldValidate: false });
+    }
+  }, [hideEndDate, startDateVal, setValue]);
 
   if (!booking) {
     return (
@@ -91,10 +154,6 @@ export const EditBooking: React.FC = () => {
       </div>
     );
   }
-
-  const bookingSource = watch('bookingSource');
-  const totalAmount = watch('totalAmount');
-  const advanceReceived = watch('advanceReceived');
 
   const onSubmit = async (data: BookingFormData) => {
     await updateBooking(booking.id, {
@@ -123,18 +182,18 @@ export const EditBooking: React.FC = () => {
       return;
     }
     try {
-      const created = await cityAPI.create(trimmed);
-      const next = [...cities, created.name].sort();
-      setCities(next);
-      localStorage.setItem('bolt_cities', JSON.stringify(next));
-      setValue('cityOfWork', created.name, { shouldDirty: true });
+  const created = await cityAPI.create(trimmed);
+  const next = sanitizeCities([...cities, created.name]);
+  setCities(next);
+  localStorage.setItem('bolt_cities', JSON.stringify(next));
+  setValue('cityOfWork', created.name, { shouldDirty: true });
       toast.success('City added');
       setCityModalOpen(false);
   } catch {
       // Fallback to local storage if API fails
-      const next = [...cities, trimmed].sort();
-      setCities(next);
-      localStorage.setItem('bolt_cities', JSON.stringify(next));
+  const next = sanitizeCities([...cities, trimmed]);
+  setCities(next);
+  localStorage.setItem('bolt_cities', JSON.stringify(next));
       setValue('cityOfWork', trimmed, { shouldDirty: true });
       toast.success('City added locally');
       setCityModalOpen(false);
@@ -172,11 +231,13 @@ export const EditBooking: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Select {...register('journeyType')} label="Journey Type" error={errors.journeyType?.message} options={[{value:'outstation-one-way',label:'Outstation One Way'},{value:'outstation',label:'Outstation'},{value:'local-outstation',label:'Local + Outstation'},{value:'local',label:'Local'},{value:'transfer',label:'Transfer'}]} />
               <Input type="datetime-local" {...register('startDate')} label="Start" />
-              <Input type="datetime-local" {...register('endDate')} label="End" />
+              {!hideEndDate && (
+                <Input type="datetime-local" {...register('endDate')} label="End" />
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
-                <Select {...register('cityOfWork')} label="City of Work" placeholder="Select city" options={[{value:'',label:'Select city'}, ...cities.map(c=>({value:c,label:c}))]} />
+                <Select {...register('cityOfWork')} label="City of Work" placeholder="Select city" options={cities.map(c=>({value:c,label:c}))} />
               </div>
               <div className="flex items-end">
                 <Button type="button" variant="outline" onClick={()=>{ setCityError(null); setNewCity(''); setCityModalOpen(true); }}>

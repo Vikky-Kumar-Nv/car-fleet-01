@@ -308,6 +308,49 @@ export const paymentSchema = z.object({
   relatedAdvanceId: z.string().uuid().optional(),
 });
 
+// Driver payment for a specific booking
+export const driverBookingPaymentSchema = z.object({
+  driverId: z.string().min(1),
+  bookingId: z.string().min(1),
+  mode: z.enum(['per-trip','daily','fuel-basis']),
+  amount: z.number().min(0).optional(), // may be auto-computed for fuel-basis
+  fuelQuantity: z.number().min(0).optional(),
+  fuelRate: z.number().min(0).optional(),
+  distanceKm: z.number().min(0).optional(),
+  mileage: z.number().min(0).optional(),
+  description: z.string().optional(),
+}).refine(d => {
+  if (d.mode === 'fuel-basis') {
+    const hasExplicit = d.fuelQuantity !== undefined && d.fuelRate !== undefined;
+    const hasDerived = d.distanceKm !== undefined && d.mileage !== undefined && d.mileage > 0 && d.fuelRate !== undefined;
+    return hasExplicit || hasDerived;
+  }
+  return d.amount !== undefined; // per-trip or daily must provide amount
+}, { message: 'Provide amount (per-trip/daily) OR (fuelQuantity & fuelRate) OR (distanceKm & mileage ( >0 ) & fuelRate) for fuel-basis' });
+
+export const driverBookingPaymentUpdateSchema = z.object({
+  mode: z.enum(['per-trip','daily','fuel-basis']).optional(),
+  amount: z.number().min(0).optional(),
+  fuelQuantity: z.number().min(0).optional(),
+  fuelRate: z.number().min(0).optional(),
+  distanceKm: z.number().min(0).optional(),
+  mileage: z.number().min(0).optional(),
+  description: z.string().optional(),
+  settle: z.boolean().optional(), // if true -> mark settled
+}).superRefine((d, ctx) => {
+  if (d.mode === 'fuel-basis') {
+    const hasExplicit = d.fuelQuantity !== undefined && d.fuelRate !== undefined;
+    const hasDerived = d.distanceKm !== undefined && d.mileage !== undefined && d.mileage > 0 && d.fuelRate !== undefined;
+    if (!hasExplicit && !hasDerived) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Provide (fuelQuantity & fuelRate) OR (distanceKm & mileage (>0) & fuelRate) for fuel-basis' });
+    }
+  } else if (d.mode === 'per-trip' || d.mode === 'daily') {
+    if (d.amount === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'amount required for per-trip/daily' });
+    }
+  }
+});
+
 // Fuel entry creation validation
 export const fuelEntrySchema = z.object({
   vehicleId: z.string().min(1),

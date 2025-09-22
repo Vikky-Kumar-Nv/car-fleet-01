@@ -15,13 +15,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -32,10 +42,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPayments = exports.addPayment = exports.removeDutySlip = exports.uploadDutySlips = exports.updateStatus = exports.addExpense = exports.deleteBooking = exports.updateBooking = exports.getBookingById = exports.getBookings = exports.createBooking = void 0;
+exports.exportDriverPayments = exports.deleteDriverPayment = exports.updateDriverPayment = exports.listDriverPayments = exports.addDriverPayment = exports.getPayments = exports.addPayment = exports.removeDutySlip = exports.uploadDutySlips = exports.updateStatus = exports.addExpense = exports.deleteBooking = exports.updateBooking = exports.getBookingById = exports.getBookings = exports.createBooking = void 0;
 const mongoose_1 = require("mongoose");
 const service = __importStar(require("../services"));
 const validation_1 = require("../validation");
+const payment_service_1 = require("../services/payment.service");
 const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = validation_1.bookingSchema.parse(req.body);
     const bookingData = Object.assign(Object.assign({}, data), { customerId: data.customerId ? new mongoose_1.Types.ObjectId(data.customerId) : undefined, companyId: data.companyId ? new mongoose_1.Types.ObjectId(data.companyId) : undefined, vehicleId: data.vehicleId ? new mongoose_1.Types.ObjectId(data.vehicleId) : undefined, driverId: data.driverId ? new mongoose_1.Types.ObjectId(data.driverId) : undefined, startDate: new Date(data.startDate), endDate: new Date(data.endDate), status: 'booked' });
@@ -133,3 +144,75 @@ const getPayments = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     res.json(payments);
 });
 exports.getPayments = getPayments;
+// Driver specific payments tied to a booking
+const addDriverPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const data = validation_1.driverBookingPaymentSchema.parse(Object.assign(Object.assign({}, req.body), { bookingId: req.params.id }));
+    try {
+        const payment = yield (0, payment_service_1.createDriverBookingPayment)({
+            bookingId: data.bookingId,
+            driverId: data.driverId,
+            mode: data.mode,
+            amount: data.amount,
+            fuelQuantity: data.fuelQuantity,
+            fuelRate: data.fuelRate,
+            description: data.description,
+        });
+        res.status(201).json(payment);
+    }
+    catch (e) {
+        res.status(400).json({ message: e.message || 'Failed to create driver payment' });
+    }
+});
+exports.addDriverPayment = addDriverPayment;
+const listDriverPayments = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const payments = yield (0, payment_service_1.listDriverBookingPayments)(req.params.id);
+    res.json(payments);
+});
+exports.listDriverPayments = listDriverPayments;
+const updateDriverPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const data = validation_1.driverBookingPaymentUpdateSchema.parse(req.body);
+    try {
+        const updated = yield (0, payment_service_1.updateDriverBookingPayment)(req.params.paymentId, data);
+        if (!updated)
+            return res.status(404).json({ message: 'Driver payment not found' });
+        res.json(updated);
+    }
+    catch (e) {
+        res.status(400).json({ message: e.message || 'Failed to update driver payment' });
+    }
+});
+exports.updateDriverPayment = updateDriverPayment;
+const deleteDriverPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const deleted = yield (0, payment_service_1.deleteDriverBookingPayment)(req.params.paymentId);
+    if (!deleted)
+        return res.status(404).json({ message: 'Driver payment not found' });
+    res.status(204).send();
+});
+exports.deleteDriverPayment = deleteDriverPayment;
+const exportDriverPayments = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    // Simple CSV export for now
+    const payments = yield (0, payment_service_1.listDriverBookingPayments)(req.params.id);
+    const headers = ['id', 'bookingId', 'driverId', 'mode', 'amount', 'description', 'date', 'fuelQuantity', 'fuelRate', 'computedAmount', 'settled', 'settledAt'];
+    const rows = payments.map(p => {
+        var _a, _b, _c;
+        return [
+            p._id,
+            p.bookingId,
+            p.entityId,
+            p.driverPaymentMode || '',
+            p.amount,
+            p.description || '',
+            p.date.toISOString(),
+            (_a = p.fuelQuantity) !== null && _a !== void 0 ? _a : '',
+            (_b = p.fuelRate) !== null && _b !== void 0 ? _b : '',
+            (_c = p.computedAmount) !== null && _c !== void 0 ? _c : '',
+            p.settled ? 'true' : 'false',
+            p.settledAt ? p.settledAt.toISOString() : ''
+        ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="driver-payments-${req.params.id}.csv"`);
+    res.send(csv);
+});
+exports.exportDriverPayments = exportDriverPayments;

@@ -162,6 +162,16 @@ export interface IPayment {
   date: Date;
   description: string;
   relatedAdvanceId?: string;
+  // Driver payment specific (when entityType==='driver' and optionally tied to a booking)
+  bookingId?: Types.ObjectId; // booking for which driver is paid
+  driverPaymentMode?: 'per-trip' | 'daily' | 'fuel-basis';
+  fuelQuantity?: number; // litres when fuel-basis
+  fuelRate?: number; // per litre rate snapshot
+  computedAmount?: number; // system calculated amount (e.g., fuelQuantity * fuelRate) separate from amount if manual override
+  distanceKm?: number; // total trip distance (km) used to derive fuelQuantity (distanceKm / mileage)
+  mileage?: number; // km per litre used with distanceKm
+  settled?: boolean; // whether this driver payment is settled/approved
+  settledAt?: Date; // timestamp of settlement
 }
 
 export interface AuthRequest extends Request {

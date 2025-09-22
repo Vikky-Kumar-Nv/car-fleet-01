@@ -19,5 +19,8 @@ export const getFinanceMetrics = async () => {
 };
 
 export const getPaymentsByDriver = async (driverId: string) => {
-  return Payment.find({ entityId: driverId, entityType: 'driver' }).sort({ date: -1 });
+  // Populate booking limited fields for linking back in UI
+  return Payment.find({ entityId: driverId, entityType: 'driver' })
+    .populate({ path: 'bookingId', select: 'pickupLocation dropLocation startDate endDate _id' })
+    .sort({ date: -1 });
 };

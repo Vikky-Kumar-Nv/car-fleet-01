@@ -22,6 +22,7 @@ import { EditBooking } from './pages/bookings/EditBooking';
 import { DriverList } from './pages/drivers/DriverList';
 import { CreateDriver } from './pages/drivers/CreateDriver';
 import { DriverProfile } from './pages/drivers/DriverProfile';
+import { DriverPaymentHistory } from './pages/drivers/DriverPaymentHistory';
 import { EditDriver } from './pages/drivers/EditDriver';
 import { DriverManagementPage } from './pages/drivers/DriverManagement';
 import { DriverManagementDetailPage } from './pages/drivers/DriverManagementDetail';
@@ -134,6 +135,10 @@ function App() {
                 <Route
                   path="/drivers/:id"
                   element={<ProtectedRoute allowedRoles={['admin','dispatcher']}><DriverProfile /></ProtectedRoute>}
+                />
+                <Route
+                  path="/drivers/:id/payments"
+                  element={<ProtectedRoute allowedRoles={['admin','dispatcher','accountant']}><DriverPaymentHistory /></ProtectedRoute>}
                 />
                 <Route
                   path="/drivers/:id/edit"

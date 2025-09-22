@@ -2,7 +2,7 @@
 // // src/validation/index.ts
 // import { z } from 'zod';
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fuelEntrySchema = exports.paymentSchema = exports.updateCompanySchema = exports.companySchema = exports.updateVehicleServicingSchema = exports.vehicleServicingSchema = exports.updateVehicleCategorySchema = exports.vehicleCategorySchema = exports.updateVehicleSchema = exports.vehicleSchema = exports.advanceSchema = exports.updateDriverSchema = exports.driverSchema = exports.statusSchema = exports.bookingPaymentSchema = exports.expenseSchema = exports.updateCustomerSchema = exports.customerSchema = exports.updateBookingSchema = exports.bookingSchema = exports.updateUserSchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.fuelEntrySchema = exports.driverBookingPaymentUpdateSchema = exports.driverBookingPaymentSchema = exports.paymentSchema = exports.updateCompanySchema = exports.companySchema = exports.updateVehicleServicingSchema = exports.vehicleServicingSchema = exports.updateVehicleCategorySchema = exports.vehicleCategorySchema = exports.updateVehicleSchema = exports.vehicleSchema = exports.advanceSchema = exports.updateDriverSchema = exports.driverSchema = exports.statusSchema = exports.bookingPaymentSchema = exports.expenseSchema = exports.updateCustomerSchema = exports.customerSchema = exports.updateBookingSchema = exports.bookingSchema = exports.updateUserSchema = exports.loginSchema = exports.registerSchema = void 0;
 // export const registerSchema = z.object({
 //   email: z.string().email(),
 //   password: z.string().min(6),
@@ -263,6 +263,48 @@ exports.paymentSchema = zod_1.z.object({
     type: zod_1.z.enum(['received', 'paid']),
     description: zod_1.z.string().optional(),
     relatedAdvanceId: zod_1.z.string().uuid().optional(),
+});
+// Driver payment for a specific booking
+exports.driverBookingPaymentSchema = zod_1.z.object({
+    driverId: zod_1.z.string().min(1),
+    bookingId: zod_1.z.string().min(1),
+    mode: zod_1.z.enum(['per-trip', 'daily', 'fuel-basis']),
+    amount: zod_1.z.number().min(0).optional(), // may be auto-computed for fuel-basis
+    fuelQuantity: zod_1.z.number().min(0).optional(),
+    fuelRate: zod_1.z.number().min(0).optional(),
+    distanceKm: zod_1.z.number().min(0).optional(),
+    mileage: zod_1.z.number().min(0).optional(),
+    description: zod_1.z.string().optional(),
+}).refine(d => {
+    if (d.mode === 'fuel-basis') {
+        const hasExplicit = d.fuelQuantity !== undefined && d.fuelRate !== undefined;
+        const hasDerived = d.distanceKm !== undefined && d.mileage !== undefined && d.mileage > 0 && d.fuelRate !== undefined;
+        return hasExplicit || hasDerived;
+    }
+    return d.amount !== undefined; // per-trip or daily must provide amount
+}, { message: 'Provide amount (per-trip/daily) OR (fuelQuantity & fuelRate) OR (distanceKm & mileage ( >0 ) & fuelRate) for fuel-basis' });
+exports.driverBookingPaymentUpdateSchema = zod_1.z.object({
+    mode: zod_1.z.enum(['per-trip', 'daily', 'fuel-basis']).optional(),
+    amount: zod_1.z.number().min(0).optional(),
+    fuelQuantity: zod_1.z.number().min(0).optional(),
+    fuelRate: zod_1.z.number().min(0).optional(),
+    distanceKm: zod_1.z.number().min(0).optional(),
+    mileage: zod_1.z.number().min(0).optional(),
+    description: zod_1.z.string().optional(),
+    settle: zod_1.z.boolean().optional(), // if true -> mark settled
+}).superRefine((d, ctx) => {
+    if (d.mode === 'fuel-basis') {
+        const hasExplicit = d.fuelQuantity !== undefined && d.fuelRate !== undefined;
+        const hasDerived = d.distanceKm !== undefined && d.mileage !== undefined && d.mileage > 0 && d.fuelRate !== undefined;
+        if (!hasExplicit && !hasDerived) {
+            ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, message: 'Provide (fuelQuantity & fuelRate) OR (distanceKm & mileage (>0) & fuelRate) for fuel-basis' });
+        }
+    }
+    else if (d.mode === 'per-trip' || d.mode === 'daily') {
+        if (d.amount === undefined) {
+            ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, message: 'amount required for per-trip/daily' });
+        }
+    }
 });
 // Fuel entry creation validation
 exports.fuelEntrySchema = zod_1.z.object({

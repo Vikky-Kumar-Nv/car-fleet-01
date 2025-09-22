@@ -10,7 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Icon } from '../../components/ui/Icon';
 import { format, parseISO } from 'date-fns';
-import { UploadedFile, Expense, Booking } from '../../types';
+import { UploadedFile, Expense, Booking, DriverPayment } from '../../types';
 import { bookingAPI } from '../../services/api';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -25,6 +25,10 @@ export const BookingDetails: React.FC = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showDriverPaymentModal, setShowDriverPaymentModal] = useState(false);
+  const [driverPayments, setDriverPayments] = useState<DriverPayment[]>([]);
+  const [editingDriverPayment, setEditingDriverPayment] = useState<DriverPayment | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const booking = bookings.find(b => b.id === id);
 
@@ -36,6 +40,9 @@ export const BookingDetails: React.FC = () => {
       try {
         const fresh = await bookingAPI.get(id);
         updateBooking(id, fresh as unknown as Partial<Booking>);
+        // Load driver payments
+        const dp = await bookingAPI.listDriverPayments(id);
+        setDriverPayments(dp as DriverPayment[]);
       } catch { /* ignore */ }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,8 +68,60 @@ export const BookingDetails: React.FC = () => {
     register: registerPayment,
     handleSubmit: handlePaymentSubmit,
     reset: resetPayment,
+    setValue: setValuePayment,
     formState: { errors: paymentErrors }
   } = useForm<PaymentForm>({ defaultValues: { paidOn: new Date().toISOString().slice(0,10) } });
+
+  interface DriverPaymentForm { mode: 'per-trip'|'daily'|'fuel-basis'; amount?: string; fuelQuantity?: string; fuelRate?: string; distanceKm?: string; mileage?: string; description?: string }
+  const { register: registerDriverPay, handleSubmit: handleDriverPaySubmit, watch: watchDriverPay, reset: resetDriverPay, formState: { errors: driverPayErrors } } = useForm<DriverPaymentForm>({ defaultValues: { mode: 'per-trip' } });
+  const startEditDriverPayment = (p: DriverPayment) => {
+    setEditingDriverPayment(p);
+    resetDriverPay({
+      mode: p.mode,
+      amount: p.mode !== 'fuel-basis' ? String(p.amount) : undefined,
+      fuelQuantity: p.fuelQuantity ? String(p.fuelQuantity) : undefined,
+      fuelRate: p.fuelRate ? String(p.fuelRate) : undefined,
+      description: p.description,
+    });
+    setShowDriverPaymentModal(true);
+  };
+
+  const onExportDriverPayments = async () => {
+    if (!booking) return;
+    setExporting(true);
+    try {
+      const blob = await bookingAPI.exportDriverPayments(booking.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `driver-payments-${booking.id}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast.error('Export failed'); } finally { setExporting(false); }
+  };
+  const watchMode = watchDriverPay('mode');
+  const watchFuelQty = watchDriverPay('fuelQuantity');
+  const watchFuelRate = watchDriverPay('fuelRate');
+  const watchDistanceKm = watchDriverPay('distanceKm');
+  const watchMileage = watchDriverPay('mileage');
+  // Derive fuel quantity if distance & mileage provided
+  const derivedFuelQty = watchMode === 'fuel-basis' && watchDistanceKm && watchMileage && parseFloat(watchMileage) > 0
+    ? (parseFloat(watchDistanceKm||'0') / parseFloat(watchMileage||'0'))
+    : undefined;
+  const effectiveFuelQty = derivedFuelQty !== undefined ? derivedFuelQty : (watchFuelQty ? parseFloat(watchFuelQty||'0') : 0);
+  const computedFuelAmount = watchMode === 'fuel-basis' && (effectiveFuelQty || 0) && watchFuelRate
+    ? (effectiveFuelQty * parseFloat(watchFuelRate||'0'))
+    : 0;
+
+  // Prefill collectedBy with assigned driver name when opening Add Payment modal.
+  // Placed above any conditional return to satisfy React Hooks rules.
+  useEffect(() => {
+    if (!showPaymentModal) return;
+    if (!booking) return;
+    if (!booking.driverId) return;
+    const drv = drivers.find(d => d.id === booking.driverId);
+    if (drv) setValuePayment('collectedBy', drv.name);
+  }, [showPaymentModal, booking, drivers, setValuePayment]);
 
   if (!booking) {
     return (
@@ -121,6 +180,8 @@ export const BookingDetails: React.FC = () => {
       toast.success('Payment recorded');
       setShowPaymentModal(false);
       resetPayment();
+      // Restore default collectedBy for next time
+      if (driver) setValuePayment('collectedBy', driver.name);
   } catch {
       toast.error('Failed to record payment');
     }
@@ -161,6 +222,7 @@ export const BookingDetails: React.FC = () => {
 
   const totalExpenses = booking.expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const totalPayments = (booking.payments || []).reduce((sum, p) => sum + p.amount, 0);
+  const totalDriverPayments = driverPayments.reduce((s,p)=> s + p.amount, 0);
 
   return (
     <div className="space-y-6">
@@ -373,6 +435,64 @@ export const BookingDetails: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Driver Payments */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium text-gray-900">Driver Payments</h3>
+                <div className="flex items-center space-x-2">
+                  {driver && hasRole(['admin','accountant','dispatcher']) && (
+                    <Button size="sm" variant="outline" onClick={()=> { setEditingDriverPayment(null); resetDriverPay({ mode: 'per-trip' }); setShowDriverPaymentModal(true); }}>
+                      <Icon name="plus" className="h-4 w-4 mr-1" /> Add
+                    </Button>
+                  )}
+                  {driverPayments.length>0 && (
+                    <Button size="sm" variant="outline" onClick={onExportDriverPayments} disabled={exporting}>
+                      <Icon name="download" className="h-4 w-4 mr-1" /> {exporting? 'Exporting...' : 'Export'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!driver && <p className="text-gray-500 text-sm">No driver assigned.</p>}
+              {driver && driverPayments.length === 0 && <p className="text-gray-500">No driver payments recorded</p>}
+              {driver && driverPayments.length > 0 && (
+                <div className="space-y-3">
+                  {driverPayments.map(p => (
+                    <div key={p.id} className="p-3 bg-gray-50 rounded text-sm space-y-1">
+                      <div className="flex justify-between items-start">
+                        <div className="min-w-0">
+                          <p className="font-medium">₹{p.amount.toLocaleString()} <span className="text-xs text-gray-500">({p.mode})</span> {p.settled && <Badge variant="completed" className="ml-1 text-[10px]">Settled</Badge>}</p>
+                          {p.description && <p className="text-gray-600 truncate">{p.description}</p>}
+                          {p.mode === 'fuel-basis' && (
+                            <p className="text-xs text-gray-500">Fuel: {p.fuelQuantity}L @ ₹{p.fuelRate} = ₹{p.computedAmount}</p>
+                          )}
+                        </div>
+                        <div className="text-right text-xs text-gray-500">
+                          <p>{new Date(p.date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      {hasRole(['admin','accountant','dispatcher']) && (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {!p.settled && <Button size="sm" variant="outline" onClick={async ()=> {
+                            try { const updated = await bookingAPI.updateDriverPayment(booking.id, p.id, { settle: true }); setDriverPayments(cur=> cur.map(dp=> dp.id===p.id? updated: dp)); toast.success('Settled'); } catch { toast.error('Settle failed'); }
+                          }}>Settle</Button>}
+                          <Button size="sm" variant="outline" onClick={()=> startEditDriverPayment(p)}>Edit</Button>
+                          <Button size="sm" variant="outline" onClick={async ()=> { if(!confirm('Delete driver payment?')) return; try { await bookingAPI.deleteDriverPayment(booking.id, p.id); setDriverPayments(cur=> cur.filter(dp=> dp.id!==p.id)); toast.success('Deleted'); } catch { toast.error('Delete failed'); } }}>Delete</Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div className="border-t pt-2 flex justify-between font-medium text-sm">
+                    <span>Total Driver Paid</span>
+                    <span>₹{totalDriverPayments.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Status History */}
           <Card>
             <CardHeader>
@@ -554,10 +674,10 @@ export const BookingDetails: React.FC = () => {
             error={statusErrors.status?.message as string}
             options={[
               { value: 'booked', label: 'Booked' },
-        { value: 'yet-to-start', label: 'Yet to Start' },
+              // { value: 'yet-to-start', label: 'Yet to Start' },
               { value: 'ongoing', label: 'Ongoing' },
-        { value: 'completed', label: 'Completed' },
-        { value: 'canceled', label: 'Canceled' }
+              { value: 'completed', label: 'Completed' },
+              { value: 'canceled', label: 'Canceled' }
             ]}
           />
 
@@ -605,6 +725,98 @@ export const BookingDetails: React.FC = () => {
           <div className="flex justify-end space-x-3">
             <Button type="button" variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
             <Button type="submit">Add Payment</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Driver Payment Modal */}
+      <Modal isOpen={showDriverPaymentModal} onClose={()=> setShowDriverPaymentModal(false)} title={editingDriverPayment? 'Edit Driver Payment' : 'Add Driver Payment'}>
+        <form onSubmit={handleDriverPaySubmit(async (data)=>{
+          if(!booking || !driver) return;
+          try {
+              if (editingDriverPayment) {
+              const upd: { mode: 'per-trip'|'daily'|'fuel-basis'; description?: string; amount?: number; fuelQuantity?: number; fuelRate?: number; distanceKm?: number; mileage?: number } = { mode: data.mode, description: data.description };
+              if (data.mode === 'fuel-basis') {
+                if (data.distanceKm && data.mileage && parseFloat(data.mileage) > 0) {
+                  upd.distanceKm = parseFloat(data.distanceKm);
+                  upd.mileage = parseFloat(data.mileage);
+                  // Let backend derive fuelQuantity; we don't send explicit unless user manually entered without distance
+                }
+                if (!upd.distanceKm && data.fuelQuantity) {
+                  upd.fuelQuantity = parseFloat(data.fuelQuantity||'0');
+                }
+                if (data.fuelRate) upd.fuelRate = parseFloat(data.fuelRate||'0');
+              }
+              else { upd.amount = parseFloat(data.amount||'0'); }
+              const updated = await bookingAPI.updateDriverPayment(booking.id, editingDriverPayment.id, upd);
+              setDriverPayments(cur=> cur.map(p=> p.id===editingDriverPayment.id? updated: p));
+              toast.success('Driver payment updated');
+            } else {
+              const payload: { driverId: string; mode: 'per-trip'|'daily'|'fuel-basis'; description?: string; amount?: number; fuelQuantity?: number; fuelRate?: number; distanceKm?: number; mileage?: number } = { driverId: driver.id, mode: data.mode, description: data.description };
+              if (data.mode === 'fuel-basis') {
+                if (data.distanceKm && data.mileage && parseFloat(data.mileage) > 0) {
+                  payload.distanceKm = parseFloat(data.distanceKm);
+                  payload.mileage = parseFloat(data.mileage);
+                  // Derived path; don't set fuelQuantity explicitly
+                }
+                if (!payload.distanceKm && data.fuelQuantity) {
+                  payload.fuelQuantity = parseFloat(data.fuelQuantity||'0');
+                }
+                if (data.fuelRate) payload.fuelRate = parseFloat(data.fuelRate||'0');
+              }
+              else { payload.amount = parseFloat(data.amount||'0'); }
+              const created = await bookingAPI.addDriverPayment(booking.id, payload);
+              setDriverPayments([created as DriverPayment, ...driverPayments]);
+              toast.success('Driver payment added');
+            }
+            resetDriverPay();
+            setEditingDriverPayment(null);
+            setShowDriverPaymentModal(false);
+          } catch {
+            toast.error('Failed to add driver payment');
+          }
+        })} className="space-y-4">
+          <Select
+            {...registerDriverPay('mode', { required: 'Mode required' })}
+            label="Payment Mode"
+            error={driverPayErrors.mode?.message as string}
+            options={[
+              { value: 'per-trip', label: 'Per Trip' },
+              { value: 'daily', label: 'Daily' },
+              { value: 'fuel-basis', label: 'Fuel Basis' },
+            ]}
+          />
+          {watchMode !== 'fuel-basis' && (
+            <Input
+              {...registerDriverPay('amount', { required: 'Amount required' })}
+              type="number" step="0.01" label="Amount" error={driverPayErrors.amount?.message as string} placeholder="0.00" />
+          )}
+          {watchMode === 'fuel-basis' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Input {...registerDriverPay('distanceKm')} type="number" step="0.1" label="Distance (km)" placeholder="0" />
+                <Input {...registerDriverPay('mileage')} type="number" step="0.1" label="Mileage (km/L)" placeholder="0" />
+                {derivedFuelQty === undefined && (
+                  <Input {...registerDriverPay('fuelQuantity')} type="number" step="0.01" label="Fuel Litres" placeholder="0" />
+                )}
+                <Input {...registerDriverPay('fuelRate', { required: 'Rate required' })} type="number" step="0.01" label="Fuel Rate (₹/L)" error={driverPayErrors.fuelRate?.message as string} placeholder="0" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Litres (Auto)</label>
+                  <div className="px-3 py-2 border rounded bg-gray-50 text-gray-700">{derivedFuelQty !== undefined ? derivedFuelQty.toFixed(2) : (watchFuelQty || '0')}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Computed Amount</label>
+                  <div className="px-3 py-2 border rounded bg-gray-50 text-gray-700">₹{computedFuelAmount.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+          <Input {...registerDriverPay('description')} label="Description" placeholder="Optional" />
+          <div className="flex justify-end space-x-3">
+            <Button type="button" variant="outline" onClick={()=> { setShowDriverPaymentModal(false); setEditingDriverPayment(null); }}>Cancel</Button>
+            <Button type="submit">{editingDriverPayment? 'Save' : 'Add'}</Button>
           </div>
         </form>
       </Modal>

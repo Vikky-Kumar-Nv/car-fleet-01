@@ -17,5 +17,11 @@ router.post('/:id/duty-slips', auth(['admin', 'dispatcher']), controller.uploadD
 router.put('/:id/remove-duty-slip', auth(['admin', 'dispatcher']), controller.removeDutySlip);
 router.post('/:id/payments', auth(['admin','accountant','dispatcher']), controller.addPayment);
 router.get('/:id/payments', auth(['admin','accountant','dispatcher','customer']), controller.getPayments);
+// Driver payment (per booking)
+router.post('/:id/driver-payments', auth(['admin','accountant','dispatcher']), controller.addDriverPayment);
+router.get('/:id/driver-payments', auth(['admin','accountant','dispatcher']), controller.listDriverPayments);
+router.put('/:id/driver-payments/:paymentId', auth(['admin','accountant','dispatcher']), controller.updateDriverPayment);
+router.delete('/:id/driver-payments/:paymentId', auth(['admin','accountant','dispatcher']), controller.deleteDriverPayment);
+router.get('/:id/driver-payments-export', auth(['admin','accountant','dispatcher']), controller.exportDriverPayments);
 
 export { router as bookingRouter };

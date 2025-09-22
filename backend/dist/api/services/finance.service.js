@@ -31,6 +31,9 @@ const getFinanceMetrics = () => __awaiter(void 0, void 0, void 0, function* () {
 });
 exports.getFinanceMetrics = getFinanceMetrics;
 const getPaymentsByDriver = (driverId) => __awaiter(void 0, void 0, void 0, function* () {
-    return models_1.Payment.find({ entityId: driverId, entityType: 'driver' }).sort({ date: -1 });
+    // Populate booking limited fields for linking back in UI
+    return models_1.Payment.find({ entityId: driverId, entityType: 'driver' })
+        .populate({ path: 'bookingId', select: 'pickupLocation dropLocation startDate endDate _id' })
+        .sort({ date: -1 });
 });
 exports.getPaymentsByDriver = getPaymentsByDriver;

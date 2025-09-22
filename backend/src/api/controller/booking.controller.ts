@@ -2,7 +2,8 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import * as service from '../services';
-import { bookingSchema, updateBookingSchema, expenseSchema, statusSchema, bookingPaymentSchema } from '../validation';
+import { bookingSchema, updateBookingSchema, expenseSchema, statusSchema, bookingPaymentSchema, driverBookingPaymentSchema, driverBookingPaymentUpdateSchema } from '../validation';
+import { createDriverBookingPayment, listDriverBookingPayments, updateDriverBookingPayment, deleteDriverBookingPayment } from '../services/payment.service';
 
 export const createBooking = async (req: Request, res: Response) => {
   const data = bookingSchema.parse(req.body);
@@ -98,4 +99,69 @@ export const addPayment = async (req: Request, res: Response) => {
 export const getPayments = async (req: Request, res: Response) => {
   const payments = await service.listPayments(req.params.id);
   res.json(payments);
+};
+
+// Driver specific payments tied to a booking
+export const addDriverPayment = async (req: Request, res: Response) => {
+  const data = driverBookingPaymentSchema.parse({ ...req.body, bookingId: req.params.id });
+  try {
+    const payment = await createDriverBookingPayment({
+      bookingId: data.bookingId,
+      driverId: data.driverId,
+      mode: data.mode,
+      amount: data.amount,
+      fuelQuantity: data.fuelQuantity,
+      fuelRate: data.fuelRate,
+      description: data.description,
+    });
+    res.status(201).json(payment);
+  } catch (e: any) {
+    res.status(400).json({ message: e.message || 'Failed to create driver payment' });
+  }
+};
+
+export const listDriverPayments = async (req: Request, res: Response) => {
+  const payments = await listDriverBookingPayments(req.params.id);
+  res.json(payments);
+};
+
+export const updateDriverPayment = async (req: Request, res: Response) => {
+  const data = driverBookingPaymentUpdateSchema.parse(req.body);
+  try {
+    const updated = await updateDriverBookingPayment(req.params.paymentId, data as any);
+    if (!updated) return res.status(404).json({ message: 'Driver payment not found' });
+    res.json(updated);
+  } catch (e: any) {
+    res.status(400).json({ message: e.message || 'Failed to update driver payment' });
+  }
+};
+
+export const deleteDriverPayment = async (req: Request, res: Response) => {
+  const deleted = await deleteDriverBookingPayment(req.params.paymentId);
+  if (!deleted) return res.status(404).json({ message: 'Driver payment not found' });
+  res.status(204).send();
+};
+
+export const exportDriverPayments = async (req: Request, res: Response) => {
+  // Simple CSV export for now
+  const payments = await listDriverBookingPayments(req.params.id);
+  const headers = ['id','bookingId','driverId','mode','amount','description','date','fuelQuantity','fuelRate','computedAmount','settled','settledAt'];
+  const rows = payments.map(p => [
+    (p as any)._id,
+    (p as any).bookingId,
+    (p as any).entityId,
+    (p as any).driverPaymentMode || '',
+    p.amount,
+    (p as any).description || '',
+    p.date.toISOString(),
+    (p as any).fuelQuantity ?? '',
+    (p as any).fuelRate ?? '',
+    (p as any).computedAmount ?? '',
+    (p as any).settled ? 'true' : 'false',
+    (p as any).settledAt ? (p as any).settledAt.toISOString() : ''
+  ].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="driver-payments-${req.params.id}.csv"`);
+  res.send(csv);
 };

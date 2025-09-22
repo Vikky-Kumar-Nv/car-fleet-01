@@ -169,6 +169,49 @@ export interface Payment {
   relatedAdvanceId?: string;
 }
 
+// Driver payment linked to a booking (separate from customer-side booking payments)
+export interface DriverPayment {
+  id: string;
+  bookingId: string;
+  driverId: string;
+  mode: 'per-trip' | 'daily' | 'fuel-basis';
+  amount: number; // final paid amount
+  description?: string;
+  date: string; // created date
+  fuelQuantity?: number;
+  fuelRate?: number;
+  computedAmount?: number; // system computed when fuel-basis
+  distanceKm?: number; // optional distance used to derive fuel
+  mileage?: number; // km per litre reference
+  settled?: boolean;
+  settledAt?: string;
+}
+
+// Payment returned from finance driver payments endpoint (may include booking meta)
+export interface DriverFinancePayment {
+  id: string;
+  amount: number;
+  type: 'paid' | 'received';
+  date: string;
+  description?: string;
+  bookingId?: string;
+  booking?: {
+    id: string;
+    pickupLocation?: string;
+    dropLocation?: string;
+    startDate?: string;
+    endDate?: string;
+  };
+  mode?: 'per-trip' | 'daily' | 'fuel-basis';
+  fuelQuantity?: number;
+  fuelRate?: number;
+  computedAmount?: number;
+  distanceKm?: number;
+  mileage?: number;
+  settled?: boolean;
+  settledAt?: string;
+}
+
 export interface UploadedFile {
   id: string;
   name: string;
