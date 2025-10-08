@@ -19,6 +19,7 @@ export const seedUsers = async () => {
         role: 'admin',
         password: await bcrypt.hash('password', 10),
       },
+      //admin
       {
         email: 'accountant@gmail.com',
         name: 'John Accountant',
